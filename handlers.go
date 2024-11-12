@@ -475,10 +475,17 @@ func handleKillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     })
 
     if clientIPPort == "" {
-        respondWithError(s, i, "VPN session not found for the specified username.")
+        message := fmt.Sprintf("Session for %s not found.", username)
+        log.Println(message)
+        _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: message,
+        })
+        if err != nil {
+            log.Printf("Failed to send follow-up message: %v", err)
+        }
         return
     }
-    
+
     log.Printf("Calling terminateSession with clientIPPort: %s", clientIPPort)
     err = terminateSession(client, "server1", clientIPPort)
     if err != nil {
