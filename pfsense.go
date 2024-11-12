@@ -208,7 +208,7 @@ func deleteUser(client *http.Client, ids []string) error {
 
 func terminateSession(client *http.Client, port, clientIPPort string) error {
     terminateURL := fmt.Sprintf("%s/status_openvpn.php?action=kill&port=%s&remipp=%s&client_id=", BaseURL, port, clientIPPort)
-
+    fmt.Println("Terminate URL:", terminateURL)
     req, err := http.NewRequest("GET", terminateURL, nil)
     if err != nil {
         return fmt.Errorf("failed to create terminate request: %w", err)
