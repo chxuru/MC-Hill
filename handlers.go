@@ -420,6 +420,7 @@ func handleStatusCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 func handleKillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+    log.Println("Attempting to terminate session for:", username)
     err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
         Data: &discordgo.InteractionResponseData{
@@ -476,7 +477,6 @@ func handleKillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
         respondWithError(s, i, "VPN session not found for the specified username.")
         return
     }
-    log.Println("Attempting to terminate session for:", username)
     err = terminateSession(client, "server1", clientIPPort)
     if err != nil {
         respondWithError(s, i, fmt.Sprintf("Failed to terminate session: %v", err))
