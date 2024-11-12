@@ -3,7 +3,7 @@ name: IDK
 on:
   push:
     branches:
-      - test-ban
+      - main
 jobs:
   build:
     runs-on: ubuntu-latest
