@@ -48,6 +48,8 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
             handleDeleteCommand(s, i)
         case "status":
             handleStatusCommand(s, i)
+        case "kill":
+            handleKillCommand(s, i)
         }
     }
 }
@@ -409,10 +411,92 @@ func handleStatusCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseChannelMessageWithSource,
         Data: &discordgo.InteractionResponseData{
-            Content: "I hate you",
+            Content: "I hate you (bot is online)",
         },
     })
     if err != nil {
         log.Printf("Failed to send status response: %v", err)
+    }
+}
+
+func handleKillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+    err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+        Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+        Data: &discordgo.InteractionResponseData{
+            Content: "Terminating VPN session...",
+        },
+    })
+    if err != nil {
+        log.Printf("Failed to send initial response: %v", err)
+        return
+    }
+
+    username := i.ApplicationCommandData().Options[0].StringValue()
+    log.Println("Attempting to terminate session for:", username)
+
+    jar, _ := cookiejar.New(nil)
+    client := &http.Client{
+        Timeout: 10 * time.Second,
+        Transport: &http.Transport{
+            TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+        },
+        Jar: jar,
+    }
+
+    loginSuccess, err := loginToPfSense(client)
+    if err != nil || !loginSuccess {
+        respondWithError(s, i, "Login to pfSense failed. Please try again.")
+        return
+    }
+
+    vpnStatusURL := BaseURL + OpenvpnStatusPath
+    resp, err := client.Get(vpnStatusURL)
+    if err != nil {
+        respondWithError(s, i, "Failed to fetch OpenVPN status page.")
+        return
+    }
+    defer resp.Body.Close()
+
+    doc, err := goquery.NewDocumentFromReader(resp.Body)
+    if err != nil {
+        respondWithError(s, i, "Failed to parse OpenVPN status page.")
+        return
+    }
+
+    var clientIPPort string
+    doc.Find("tr").Each(func(index int, row *goquery.Selection) {
+        clientName := strings.TrimSpace(row.Find("td").Eq(0).Text())
+        clientIP := strings.TrimSpace(row.Find("td").Eq(1).Text())
+
+        if strings.Contains(clientName, username) && clientIP != "" {
+            clientIPPort = clientIP
+            log.Printf("Match found for username: %s with clientIPPort: %s", clientName, clientIPPort)
+        }
+    })
+
+    if clientIPPort == "" {
+        message := fmt.Sprintf("Session for %s not found.", username)
+        log.Println(message)
+        _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: message,
+        })
+        if err != nil {
+            log.Printf("Failed to send follow-up message: %v", err)
+        }
+        return
+    }
+
+    log.Printf("Calling terminateSession with clientIPPort: %s", clientIPPort)
+    err = terminateSession(client, "server1", clientIPPort)
+    if err != nil {
+        respondWithError(s, i, fmt.Sprintf("Failed to terminate session: %v", err))
+        return
+    }
+
+    _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+        Content: fmt.Sprintf("VPN session for %s terminated successfully.", username),
+    })
+    if err != nil {
+        log.Printf("Failed to send follow-up message: %v", err)
     }
 }

@@ -8,6 +8,7 @@ import (
     "net/http"
     "net/url"
     "strings"
+    "log"
 )
 
 func loginToPfSense(client *http.Client) (bool, error) {
@@ -201,6 +202,27 @@ func deleteUser(client *http.Client, ids []string) error {
 
     if response.StatusCode != http.StatusOK {
         return fmt.Errorf("failed to delete users, status: %s", response.Status)
+    }
+
+    return nil
+}
+
+func terminateSession(client *http.Client, port, clientIPPort string) error {
+    terminateURL := fmt.Sprintf("%s/status_openvpn.php?action=kill&port=%s&remipp=%s&client_id=", BaseURL, port, clientIPPort)
+    log.Println("Terminate URL:", terminateURL)
+    req, err := http.NewRequest("GET", terminateURL, nil)
+    if err != nil {
+        return fmt.Errorf("failed to create terminate request: %w", err)
+    }
+
+    resp, err := client.Do(req)
+    if err != nil {
+        return fmt.Errorf("failed to execute terminate request: %w", err)
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode != http.StatusOK {
+        return fmt.Errorf("terminate request failed with status: %s", resp.Status)
     }
 
     return nil
