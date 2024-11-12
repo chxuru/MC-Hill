@@ -46,6 +46,8 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
             handleConnsCommand(s, i)
         case "delete":
             handleDeleteCommand(s, i)
+        case "status":
+            handleStatusCommand(s, i)
         }
     }
 }
@@ -400,5 +402,17 @@ func handleDeleteCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     })
     if err != nil {
         log.Printf("Failed to send follow-up message: %v", err)
+    }
+}
+
+func handleStatusCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+    err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+        Type: discordgo.InteractionResponseChannelMessageWithSource,
+        Data: &discordgo.InteractionResponseData{
+            Content: "I hate you",
+        },
+    })
+    if err != nil {
+        log.Printf("Failed to send status response: %v", err)
     }
 }
