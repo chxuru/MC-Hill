@@ -476,6 +476,7 @@ func handleKillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
         respondWithError(s, i, "VPN session not found for the specified username.")
         return
     }
+    log.Printf("Calling terminateSession with clientIPPort: %s", clientIPPort)
     err = terminateSession(client, "server1", clientIPPort)
     if err != nil {
         respondWithError(s, i, fmt.Sprintf("Failed to terminate session: %v", err))
