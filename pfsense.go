@@ -8,6 +8,7 @@ import (
     "net/http"
     "net/url"
     "strings"
+    "log"
 )
 
 func loginToPfSense(client *http.Client) (bool, error) {
