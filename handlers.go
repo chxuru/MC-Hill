@@ -411,7 +411,7 @@ func handleStatusCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseChannelMessageWithSource,
         Data: &discordgo.InteractionResponseData{
-            Content: "I hate you",
+            Content: "I hate you (bot is online)",
         },
     })
     if err != nil {
