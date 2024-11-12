@@ -21,6 +21,6 @@ func main() {
     }
 
     registerCommands(discord)
-    log.Println("Bot is running.")
+    log.Println("Bot is running!")
     select {}
 }
