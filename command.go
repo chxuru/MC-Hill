@@ -44,6 +44,18 @@ func registerCommands(discord *discordgo.Session) {
                 },
             },
         },
+        {
+            Name:        "kill",
+            Description: "Kill a VPN session by username",
+            Options: []*discordgo.ApplicationCommandOption{
+                {
+                    Type:        discordgo.ApplicationCommandOptionString,
+                    Name:        "username",
+                    Description: "Username of the VPN connection to kill",
+                    Required:    true,
+                },
+            },
+        },
     }
 
     for _, command := range commands {
