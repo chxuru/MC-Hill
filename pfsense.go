@@ -155,7 +155,7 @@ func notifyUserOnDiscord(s *discordgo.Session, userID, username, password string
     }
 
     message := fmt.Sprintf(
-        "Hi, I am here to deliver your VPN credentials. Please import the attached profile to either OpenVPN or Pritunl. If your username indicates the profile is for a workshop (WS), you will lose access after the workshop ends. DM @chxuru on Discord if you have any questions.\n\n"+
+        "Hi, I am here to deliver your VPN credentials. Please import the attached profile to either OpenVPN or Pritunl. If your credentials are for a workshop or competition, you will lose access after the event ends. DM @chxuru on Discord if you have any questions.\n\n"+
             "Credentials\nUsername: ||%s||\nPassword: ||%s||\n\n"+
             "https://drive.google.com/file/d/12ncVQsFdZktoYm3BkBKam7g78uhTnG2r/view",
         username, password,
