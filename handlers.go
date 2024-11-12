@@ -420,7 +420,6 @@ func handleStatusCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 func handleKillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-    log.Println("Attempting to terminate session for:", username)
     err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
         Data: &discordgo.InteractionResponseData{
@@ -433,7 +432,7 @@ func handleKillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     }
 
     username := i.ApplicationCommandData().Options[0].StringValue()
-
+    log.Println("Attempting to terminate session for:", username)
     jar, _ := cookiejar.New(nil)
     client := &http.Client{
         Timeout: 10 * time.Second,
