@@ -167,3 +167,41 @@ func notifyUserOnDiscord(s *discordgo.Session, userID, username, password string
 
     return nil
 }
+
+func deleteUser(client *http.Client, ids []string) error {
+    userManagerPage, err := client.Get(BaseURL + UserManagerPath)
+    if err != nil {
+        return fmt.Errorf("failed to fetch user manager page: %w", err)
+    }
+    defer userManagerPage.Body.Close()
+
+    csrfToken, err := getCSRFToken(userManagerPage)
+    if err != nil {
+        return fmt.Errorf("failed to retrieve CSRF token: %w", err)
+    }
+
+    deleteUserPayload := url.Values{
+        "__csrf_magic": {csrfToken},
+        "dellall":      {"dellall"},
+    }
+    for _, id := range ids {
+        deleteUserPayload.Add("delete_check[]", strings.TrimSpace(id))
+    }
+
+    headers := map[string]string{
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Referer":      BaseURL + UserManagerPath,
+    }
+
+    response, err := postFormWithHeaders(client, BaseURL+"/system_usermanager.php", deleteUserPayload, headers)
+    if err != nil {
+        return fmt.Errorf("request to delete users failed: %w", err)
+    }
+    defer response.Body.Close()
+
+    if response.StatusCode != http.StatusOK {
+        return fmt.Errorf("failed to delete users, status: %s", response.Status)
+    }
+
+    return nil
+}
