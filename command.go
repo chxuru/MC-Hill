@@ -1,10 +1,3 @@
-package main
-
-import (
-    "github.com/bwmarrin/discordgo"
-    "log"
-)
-
 func registerCommands(discord *discordgo.Session) {
     commands := []discordgo.ApplicationCommand{
         {
@@ -31,6 +24,18 @@ func registerCommands(discord *discordgo.Session) {
         },
         {Name: "display", Description: "Display all profiles"},
         {Name: "conns", Description: "Display active connections"},
+        {
+            Name:        "delete",
+            Description: "Delete users by ID",
+            Options: []*discordgo.ApplicationCommandOption{
+                {
+                    Type:        discordgo.ApplicationCommandOptionString,
+                    Name:        "userids",
+                    Description: "Comma-separated list of user IDs to delete",
+                    Required:    true,
+                },
+            },
+        },
     }
 
     for _, command := range commands {
