@@ -1,3 +1,9 @@
+package main
+import (
+    "github.com/bwmarrin/discordgo"
+    "log"
+)
+
 func registerCommands(discord *discordgo.Session) {
     commands := []discordgo.ApplicationCommand{
         {
