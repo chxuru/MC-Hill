@@ -433,6 +433,7 @@ func handleKillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
     username := i.ApplicationCommandData().Options[0].StringValue()
     log.Println("Attempting to terminate session for:", username)
+
     jar, _ := cookiejar.New(nil)
     client := &http.Client{
         Timeout: 10 * time.Second,
@@ -467,8 +468,9 @@ func handleKillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
         clientName := strings.TrimSpace(row.Find("td").Eq(0).Text())
         clientIP := strings.TrimSpace(row.Find("td").Eq(1).Text())
 
-        if clientName == username {
+        if strings.Contains(clientName, username) && clientIP != "" {
             clientIPPort = clientIP
+            log.Printf("Match found for username: %s with clientIPPort: %s", clientName, clientIPPort)
         }
     })
 
@@ -476,6 +478,7 @@ func handleKillCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
         respondWithError(s, i, "VPN session not found for the specified username.")
         return
     }
+    
     log.Printf("Calling terminateSession with clientIPPort: %s", clientIPPort)
     err = terminateSession(client, "server1", clientIPPort)
     if err != nil {
