@@ -44,6 +44,8 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
             handleDisplayCommand(s, i)
         case "conns":
             handleConnsCommand(s, i)
+        case "delete":
+            handleDeleteCommand(s, i)
         }
     }
 }
@@ -354,5 +356,49 @@ func handleDisplayCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 
     if err != nil {
         log.Printf("Failed to send message: %v", err)
+    }
+}
+
+func handleDeleteCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+    err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+        Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+        Data: &discordgo.InteractionResponseData{
+            Content: "Processing delete request...",
+        },
+    })
+    if err != nil {
+        log.Printf("Failed to send initial response: %v", err)
+        return
+    }
+
+    userIDs := i.ApplicationCommandData().Options[0].StringValue()
+    ids := strings.Split(userIDs, ",")
+
+    jar, _ := cookiejar.New(nil)
+    client := &http.Client{
+        Timeout: 10 * time.Second,
+        Transport: &http.Transport{
+            TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+        },
+        Jar: jar,
+    }
+
+    loginSuccess, err := loginToPfSense(client)
+    if err != nil || !loginSuccess {
+        respondWithError(s, i, "Login to pfSense failed. Please try again.")
+        return
+    }
+
+    err = deleteUser(client, ids)
+    if err != nil {
+        respondWithError(s, i, fmt.Sprintf("Failed to delete users: %v", err))
+        return
+    }
+
+    _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+        Content: "Users deleted successfully.",
+    })
+    if err != nil {
+        log.Printf("Failed to send follow-up message: %v", err)
     }
 }
