@@ -278,8 +278,39 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
             if i == 0 {
                 continue
             }
+
+            wordsCmd := exec.Command("bw", "generate", "--passphrase", "--words", "3", "--separator", "-")
+            wordsOutput, err := wordsCmd.Output()
+            if err != nil {
+                log.Printf("Failed to generate words for password: %v", err)
+                done <- "Error occurred: Failed to generate password."
+                return
+            }
+            words := strings.ReplaceAll(strings.TrimSpace(string(wordsOutput)), "-", "")
+
+            numberCmd := exec.Command("bash", "-c", "bw generate --length 5 --number | head -c 1")
+            numberOutput, err := numberCmd.Output()
+            if err != nil {
+                log.Printf("Failed to generate number for password: %v", err)
+                done <- "Error occurred: Failed to generate password."
+                return
+            }
+            number := strings.TrimSpace(string(numberOutput))
+
+            specialCmd := exec.Command("bash", "-c", "bw generate --length 5 --special | head -c 1")
+            specialOutput, err := specialCmd.Output()
+            if err != nil {
+                log.Printf("Failed to generate special character for password: %v", err)
+                done <- "Error occurred: Failed to generate password."
+                return
+            }
+            specialChar := strings.TrimSpace(string(specialOutput))
+
+            newPassword := words + number + specialChar
+
+            row[colIndex["login_password"]] = newPassword
+
             newUsername := row[colIndex["login_username"]]
-            newPassword := row[colIndex["login_password"]]
             descr := row[colIndex["name"]]
             discordHandle := row[colIndex["notes"]]
 
@@ -301,6 +332,22 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
                 log.Printf("Failed to notify %s: %v", discordHandle, err)
             }
         }
+
+        outFile, err := os.Create(tempFile.Name())
+        if err != nil {
+            log.Printf("Failed to create output CSV file: %v", err)
+            done <- "Error occurred: Failed to create output CSV file."
+            return
+        }
+        defer outFile.Close()
+
+        csvWriter := csv.NewWriter(outFile)
+        if err := csvWriter.WriteAll(rows); err != nil {
+            log.Printf("Failed to write updated CSV file: %v", err)
+            done <- "Error occurred: Failed to write updated CSV file."
+            return
+        }
+        csvWriter.Flush()
 
         cmd := exec.Command("bw", "import", "bitwardencsv", tempFile.Name())
         cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
