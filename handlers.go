@@ -130,23 +130,6 @@ func handleConnsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     }
 }
 
-package main
-
-import (
-    "encoding/csv"
-    "fmt"
-    "io"
-    "log"
-    "net/http"
-    "net/url"
-    "os"
-    "os/exec"
-    "strings"
-    "time"
-
-    "github.com/bwmarrin/discordgo"
-)
-
 func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
