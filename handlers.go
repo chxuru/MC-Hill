@@ -136,10 +136,11 @@ func ensureBitwardenLogin() error {
     if err == nil && strings.Contains(string(output), "locked") {
         unlockCmd := exec.Command("bw", "unlock", "--raw")
         unlockCmd.Stdin = strings.NewReader(os.Getenv("BITWARDEN_MASTER_PASSWORD"))
-        _, unlockErr := unlockCmd.Output()
+        sessionKey, unlockErr := unlockCmd.Output()
         if unlockErr != nil {
             return fmt.Errorf("failed to unlock Bitwarden: %v", unlockErr)
         }
+        os.Setenv("BW_SESSION", strings.TrimSpace(string(sessionKey)))
     } else if err != nil || strings.Contains(string(output), "unauthenticated") {
         loginCmd := exec.Command("bw", "login", "--apikey")
         loginCmd.Env = append(os.Environ(),
@@ -152,10 +153,11 @@ func ensureBitwardenLogin() error {
 
         unlockCmd := exec.Command("bw", "unlock", "--raw")
         unlockCmd.Stdin = strings.NewReader(os.Getenv("BITWARDEN_MASTER_PASSWORD"))
-        _, unlockErr := unlockCmd.Output()
+        sessionKey, unlockErr := unlockCmd.Output()
         if unlockErr != nil {
             return fmt.Errorf("failed to unlock Bitwarden after login: %v", unlockErr)
         }
+        os.Setenv("BW_SESSION", strings.TrimSpace(string(sessionKey)))
     }
 
     return nil
@@ -287,7 +289,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
     }
 
     cmd := exec.Command("bw", "import", "bitwarden_csv", tempFile.Name())
-    cmd.Env = append(os.Environ(), "BW_CLIENTID="+os.Getenv("CLIENT_ID"), "BW_CLIENTSECRET="+os.Getenv("CLIENT_SECRET"))
+    cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
     output, err := cmd.CombinedOutput()
     if err != nil {
         log.Printf("Failed to import CSV into Bitwarden: %v\nOutput: %s", err, string(output))
