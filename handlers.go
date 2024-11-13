@@ -370,8 +370,6 @@ func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCr
     defer os.Remove(tempFile.Name())
 
     csvWriter := csv.NewWriter(tempFile)
-    defer csvWriter.Flush()
-
     header := []string{"folder", "favorite", "type", "name", "notes", "fields", "reprompt", "login_uri", "login_username", "login_password", "login_totp"}
     row := []string{"", "", "", descr, discordHandle, "", "", "", newUsername, newPassword, ""}
 
@@ -381,6 +379,11 @@ func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCr
     }
     if err := csvWriter.Write(row); err != nil {
         log.Printf("Failed to write CSV row: %v", err)
+        return
+    }
+    csvWriter.Flush()
+    if err := csvWriter.Error(); err != nil {
+        log.Printf("Failed to flush CSV writer: %v", err)
         return
     }
 
