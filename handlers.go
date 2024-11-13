@@ -163,21 +163,6 @@ func ensureBitwardenLogin() error {
     return nil
 }
 
-func getOrganizationID(name string) (string, error) {
-    cmd := exec.Command("bw", "list", "organizations")
-    cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
-    output, err := cmd.CombinedOutput()
-    if err != nil {
-        return "", fmt.Errorf("Failed to list organizations: %v\nOutput: %s", err, string(output))
-    }
-
-    orgID := parseOrganizationID(output, name)
-    if orgID == "" {
-        return "", fmt.Errorf("Organization %s not found", name)
-    }
-    return orgID, nil
-}
-
 func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     err := ensureBitwardenLogin()
     if err != nil {
@@ -196,8 +181,114 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         return
     }
 
-    tempFile := "path_to_imported_csv_file"
-    cmd := exec.Command("bw", "import", "bitwarden", tempFile)
+    attachmentID := i.ApplicationCommandData().Options[0].Value.(string)
+    csvAttachment, ok := i.ApplicationCommandData().Resolved.Attachments[attachmentID]
+    if !ok {
+        log.Printf("Failed to retrieve CSV attachment")
+        return
+    }
+    csvFileURL := csvAttachment.URL
+
+    response, err := http.Get(csvFileURL)
+    if err != nil {
+        log.Printf("Failed to download CSV file: %v", err)
+        return
+    }
+    defer response.Body.Close()
+
+    tempFile, err := os.CreateTemp("", "profile_data_*.csv")
+    if err != nil {
+        log.Printf("Failed to create temp file: %v", err)
+        return
+    }
+    defer os.Remove(tempFile.Name())
+
+    _, err = io.Copy(tempFile, response.Body)
+    if err != nil {
+        log.Printf("Failed to save CSV file: %v", err)
+        return
+    }
+
+    file, err := os.Open(tempFile.Name())
+    if err != nil {
+        log.Printf("Failed to open CSV file: %v", err)
+        return
+    }
+    defer file.Close()
+
+    csvReader := csv.NewReader(file)
+    rows, err := csvReader.ReadAll()
+    if err != nil {
+        log.Printf("Failed to read CSV file: %v", err)
+        return
+    }
+
+    header := rows[0]
+    colIndex := map[string]int{
+        "name":           -1,
+        "notes":          -1,
+        "login_username": -1,
+        "login_password": -1,
+        "login_uri":      -1,
+    }
+
+    for idx, colName := range header {
+        if _, ok := colIndex[colName]; ok {
+            colIndex[colName] = idx
+        }
+    }
+
+    for key, idx := range colIndex {
+        if idx == -1 {
+            log.Printf("Missing required column: %s", key)
+            return
+        }
+    }
+
+    jar, _ := cookiejar.New(nil)
+    client := &http.Client{
+        Timeout: 10 * time.Second,
+        Transport: &http.Transport{
+            TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+        },
+        Jar: jar,
+    }
+
+    loginSuccess, err := loginToPfSense(client)
+    if err != nil || !loginSuccess {
+        log.Printf("Login to pfSense failed: %v", err)
+        return
+    }
+
+    for i, row := range rows {
+        if i == 0 {
+            continue
+        }
+        newUsername := row[colIndex["login_username"]]
+        newPassword := row[colIndex["login_password"]]
+        descr := row[colIndex["name"]]
+        discordHandle := row[colIndex["notes"]]
+
+        err := createUser(client, newUsername, newPassword, descr)
+        if err != nil {
+            log.Printf("VPN profile creation failed for %s: %v", newUsername, err)
+            continue
+        }
+        log.Printf("VPN profile for %s was created successfully.", newUsername)
+
+        userID, err := getUserIDByUsername(s, GuildID, discordHandle)
+        if err != nil {
+            log.Printf("Failed to find user ID for %s: %v", discordHandle, err)
+            continue
+        }
+
+        err = notifyUserOnDiscord(s, userID, newUsername, newPassword)
+        if err != nil {
+            log.Printf("Failed to notify %s: %v", discordHandle, err)
+        }
+    }
+
+    cmd := exec.Command("bw", "import", "bitwarden", tempFile.Name())
     cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
     output, err := cmd.CombinedOutput()
     if err != nil {
@@ -205,12 +296,6 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         return
     }
     log.Printf("Successfully imported CSV into Bitwarden")
-
-    orgID, err := getOrganizationID("SOC/SDC")
-    if err != nil {
-        log.Printf("Failed to retrieve organization ID: %v", err)
-        return
-    }
 
     listCmd := exec.Command("bw", "list", "items")
     listCmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
@@ -223,7 +308,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
     items := parseItems(listOutput)
 
     for _, itemID := range items {
-        moveCmd := exec.Command("bw", "edit", "item", itemID, fmt.Sprintf(`{"organizationId": "%s"}`, orgID))
+        moveCmd := exec.Command("bw", "edit", "item", itemID, `{"organizationId": "28e94aa1-83c7-4251-973b-b22601688e21"}`)
         moveCmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
         moveOutput, err := moveCmd.CombinedOutput()
         if err != nil {
