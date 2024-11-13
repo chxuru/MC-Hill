@@ -135,6 +135,7 @@ func ensureBitwardenLogin() error {
     output, err := cmd.CombinedOutput()
     if err == nil && strings.Contains(string(output), "locked") {
         unlockCmd := exec.Command("bw", "unlock", "--raw")
+        unlockCmd.Stdin = strings.NewReader(os.Getenv("BITWARDEN_MASTER_PASSWORD"))
         _, unlockErr := unlockCmd.Output()
         if unlockErr != nil {
             return fmt.Errorf("failed to unlock Bitwarden: %v", unlockErr)
@@ -147,6 +148,13 @@ func ensureBitwardenLogin() error {
         loginOutput, loginErr := loginCmd.CombinedOutput()
         if loginErr != nil {
             return fmt.Errorf("failed to log in to Bitwarden with API Key: %v\nOutput: %s", loginErr, string(loginOutput))
+        }
+
+        unlockCmd := exec.Command("bw", "unlock", "--raw")
+        unlockCmd.Stdin = strings.NewReader(os.Getenv("BITWARDEN_MASTER_PASSWORD"))
+        _, unlockErr := unlockCmd.Output()
+        if unlockErr != nil {
+            return fmt.Errorf("failed to unlock Bitwarden after login: %v", unlockErr)
         }
     }
 
