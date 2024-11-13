@@ -198,14 +198,36 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         return
     }
 
+    header := rows[0]
+    colIndex := map[string]int{
+        "login_username": -1,
+        "login_password": -1,
+        "name":           -1,
+        "notes":          -1,
+    }
+
+    for idx, colName := range header {
+        if _, ok := colIndex[colName]; ok {
+            colIndex[colName] = idx
+        }
+    }
+
+    for key, idx := range colIndex {
+        if idx == -1 {
+            log.Printf("Missing required column: %s", key)
+            return
+        }
+    }
+
     for i, row := range rows {
-        if i == 0 || len(row) < 4 {
+        if i == 0 {
             continue
         }
-        newUsername := row[0]
-        newPassword := row[1]
-        descr := row[2]
-        discordHandle := row[3]
+
+        newUsername := row[colIndex["login_username"]]
+        newPassword := row[colIndex["login_password"]]
+        descr := row[colIndex["name"]]
+        discordHandle := row[colIndex["notes"]]
 
         err := createUser(client, newUsername, newPassword, descr)
         if err != nil {
