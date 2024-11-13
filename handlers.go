@@ -11,6 +11,7 @@ import (
     "net/http"
     "net/http/cookiejar"
     "os"
+    "os/exec"
     "strings"
     "time"
 )
@@ -156,7 +157,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
     }
     defer response.Body.Close()
 
-    tempFile, err := os.CreateTemp("", "profile_data_*.csv")
+    tempFile, err := os.CreateTemp("", "bitwarden_import_*.csv")
     if err != nil {
         log.Printf("Failed to create temp file: %v", err)
         return
@@ -183,27 +184,13 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         return
     }
 
-    jar, _ := cookiejar.New(nil)
-    client := &http.Client{
-        Timeout: 10 * time.Second,
-        Transport: &http.Transport{
-            TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-        },
-        Jar: jar,
-    }
-
-    loginSuccess, err := loginToPfSense(client)
-    if err != nil || !loginSuccess {
-        log.Printf("Login to pfSense failed: %v", err)
-        return
-    }
-
     header := rows[0]
     colIndex := map[string]int{
-        "login_username": -1,
-        "login_password": -1,
         "name":           -1,
         "notes":          -1,
+        "login_uri":      -1,
+        "login_username": -1,
+        "login_password": -1,
     }
 
     for idx, colName := range header {
@@ -224,32 +211,30 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
             continue
         }
 
-        newUsername := row[colIndex["login_username"]]
-        newPassword := row[colIndex["login_password"]]
-        descr := row[colIndex["name"]]
-        discordHandle := row[colIndex["notes"]]
+        itemJSON := fmt.Sprintf(`{
+            "type": 1,  // Login type in Bitwarden
+            "name": "%s",
+            "login": {
+                "username": "%s",
+                "password": "%s",
+                "uris": [{"uri": "%s"}]
+            },
+            "notes": "%s"
+        }`, row[colIndex["name"]], row[colIndex["login_username"]], row[colIndex["login_password"]], row[colIndex["login_uri"]], row[colIndex["notes"]])
 
-        err := createUser(client, newUsername, newPassword, descr)
-        if err != nil {
-            log.Printf("VPN profile creation failed for %s: %v", newUsername, err)
-            continue
-        }
-        log.Printf("VPN profile for %s was created successfully.", newUsername)
+        cmd := exec.Command("bw", "create", "item", itemJSON)
+        cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
 
-        userID, err := getUserIDByUsername(s, GuildID, discordHandle)
+        output, err := cmd.CombinedOutput()
         if err != nil {
-            log.Printf("Failed to find user ID for %s: %v", discordHandle, err)
-            continue
-        }
-
-        err = notifyUserOnDiscord(s, userID, newUsername, newPassword)
-        if err != nil {
-            log.Printf("Failed to notify %s: %v", discordHandle, err)
+            log.Printf("Failed to add item to Bitwarden for %s: %v\nOutput: %s", row[colIndex["name"]], err, string(output))
+        } else {
+            log.Printf("Added %s to Bitwarden", row[colIndex["name"]])
         }
     }
 
     _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-        Content: "All VPN profiles were created successfully.",
+        Content: "All items were successfully imported into Bitwarden.",
     })
     if err != nil {
         log.Printf("Failed to send follow-up message: %v", err)
