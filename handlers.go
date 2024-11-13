@@ -288,7 +288,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         }
     }
 
-    cmd := exec.Command("bw", "import", "bitwarden_csv", tempFile.Name())
+    cmd := exec.Command("bw", "import", "bitwarden", "--format", "bitwarden_csv", tempFile.Name())
     cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
     output, err := cmd.CombinedOutput()
     if err != nil {
@@ -296,6 +296,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
     } else {
         log.Printf("Successfully imported CSV into Bitwarden")
     }
+
 
     _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
         Content: "All VPN profiles were created successfully, and CSV was imported into Bitwarden.",
