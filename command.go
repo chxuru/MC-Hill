@@ -24,7 +24,7 @@ func registerCommands(discord *discordgo.Session) {
             Description: "single profile",
             Options: []*discordgo.ApplicationCommandOption{
                 {Type: discordgo.ApplicationCommandOptionString, Name: "username", Description: "VPN username", Required: true},
-                {Type: discordgo.ApplicationCommandOptionString, Name: "password", Description: "VPN password", Required: true},
+                //{Type: discordgo.ApplicationCommandOptionString, Name: "password", Description: "VPN password", Required: true},
                 {Type: discordgo.ApplicationCommandOptionString, Name: "name", Description: "Full name", Required: true},
                 {Type: discordgo.ApplicationCommandOptionString, Name: "handle", Description: "Discord handle", Required: true},
             },
