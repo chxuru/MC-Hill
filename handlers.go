@@ -164,6 +164,9 @@ func ensureBitwardenLogin() error {
 }
 
 func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+
     err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
     })
@@ -172,133 +175,158 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         return
     }
 
-    err = ensureBitwardenLogin()
-    if err != nil {
-        log.Printf("Bitwarden login failed: %v", err)
-        return
-    }
-
-    attachmentID := i.ApplicationCommandData().Options[0].Value.(string)
-    csvAttachment, ok := i.ApplicationCommandData().Resolved.Attachments[attachmentID]
-    if !ok {
-        log.Printf("Failed to retrieve CSV attachment")
-        return
-    }
-    csvFileURL := csvAttachment.URL
-
-    response, err := http.Get(csvFileURL)
-    if err != nil {
-        log.Printf("Failed to download CSV file: %v", err)
-        return
-    }
-    defer response.Body.Close()
-
-    tempFile, err := os.CreateTemp("", "profile_data_*.csv")
-    if err != nil {
-        log.Printf("Failed to create temp file: %v", err)
-        return
-    }
-    defer os.Remove(tempFile.Name())
-
-    _, err = io.Copy(tempFile, response.Body)
-    if err != nil {
-        log.Printf("Failed to save CSV file: %v", err)
-        return
-    }
-
-    file, err := os.Open(tempFile.Name())
-    if err != nil {
-        log.Printf("Failed to open CSV file: %v", err)
-        return
-    }
-    defer file.Close()
-
-    csvReader := csv.NewReader(file)
-    rows, err := csvReader.ReadAll()
-    if err != nil {
-        log.Printf("Failed to read CSV file: %v", err)
-        return
-    }
-
-    header := rows[0]
-    colIndex := map[string]int{
-        "name":           -1,
-        "notes":          -1,
-        "login_username": -1,
-        "login_password": -1,
-        "login_uri":      -1,
-    }
-
-    for idx, colName := range header {
-        if _, ok := colIndex[colName]; ok {
-            colIndex[colName] = idx
-        }
-    }
-
-    for key, idx := range colIndex {
-        if idx == -1 {
-            log.Printf("Missing required column: %s", key)
+    done := make(chan bool)
+    go func() {
+        err = ensureBitwardenLogin()
+        if err != nil {
+            log.Printf("Bitwarden login failed: %v", err)
+            done <- true
             return
         }
-    }
 
-    jar, _ := cookiejar.New(nil)
-    client := &http.Client{
-        Timeout: 10 * time.Second,
-        Transport: &http.Transport{
-            TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-        },
-        Jar: jar,
-    }
-
-    loginSuccess, err := loginToPfSense(client)
-    if err != nil || !loginSuccess {
-        log.Printf("Login to pfSense failed: %v", err)
-        return
-    }
-
-    for i, row := range rows {
-        if i == 0 {
-            continue
+        attachmentID := i.ApplicationCommandData().Options[0].Value.(string)
+        csvAttachment, ok := i.ApplicationCommandData().Resolved.Attachments[attachmentID]
+        if !ok {
+            log.Printf("Failed to retrieve CSV attachment")
+            done <- true
+            return
         }
-        newUsername := row[colIndex["login_username"]]
-        newPassword := row[colIndex["login_password"]]
-        descr := row[colIndex["name"]]
-        discordHandle := row[colIndex["notes"]]
+        csvFileURL := csvAttachment.URL
 
-        err := createUser(client, newUsername, newPassword, descr)
+        response, err := http.Get(csvFileURL)
         if err != nil {
-            log.Printf("VPN profile creation failed for %s: %v", newUsername, err)
-            continue
+            log.Printf("Failed to download CSV file: %v", err)
+            done <- true
+            return
         }
-        log.Printf("VPN profile for %s was created successfully.", newUsername)
+        defer response.Body.Close()
 
-        userID, err := getUserIDByUsername(s, GuildID, discordHandle)
+        tempFile, err := os.CreateTemp("", "profile_data_*.csv")
         if err != nil {
-            log.Printf("Failed to find user ID for %s: %v", discordHandle, err)
-            continue
+            log.Printf("Failed to create temp file: %v", err)
+            done <- true
+            return
         }
+        defer os.Remove(tempFile.Name())
 
-        err = notifyUserOnDiscord(s, userID, newUsername, newPassword)
+        _, err = io.Copy(tempFile, response.Body)
         if err != nil {
-            log.Printf("Failed to notify %s: %v", discordHandle, err)
+            log.Printf("Failed to save CSV file: %v", err)
+            done <- true
+            return
         }
-    }
 
-    cmd := exec.Command("bw", "import", "bitwardencsv", tempFile.Name())
-    cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
-    output, err := cmd.CombinedOutput()
-    if err != nil {
-        log.Printf("Failed to import CSV into Bitwarden: %v\nOutput: %s", err, string(output))
-        return
-    }
-    log.Printf("Successfully imported CSV into Bitwarden")
+        file, err := os.Open(tempFile.Name())
+        if err != nil {
+            log.Printf("Failed to open CSV file: %v", err)
+            done <- true
+            return
+        }
+        defer file.Close()
 
-    _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-        Content: "All VPN profiles were created successfully, and CSV was imported into your Bitwarden vault.",
-    })
-    if err != nil {
-        log.Printf("Failed to send follow-up message: %v", err)
+        csvReader := csv.NewReader(file)
+        rows, err := csvReader.ReadAll()
+        if err != nil {
+            log.Printf("Failed to read CSV file: %v", err)
+            done <- true
+            return
+        }
+
+        header := rows[0]
+        colIndex := map[string]int{
+            "name":           -1,
+            "notes":          -1,
+            "login_username": -1,
+            "login_password": -1,
+            "login_uri":      -1,
+        }
+
+        for idx, colName := range header {
+            if _, ok := colIndex[colName]; ok {
+                colIndex[colName] = idx
+            }
+        }
+
+        for key, idx := range colIndex {
+            if idx == -1 {
+                log.Printf("Missing required column: %s", key)
+                done <- true
+                return
+            }
+        }
+
+        jar, _ := cookiejar.New(nil)
+        client := &http.Client{
+            Timeout: 10 * time.Second,
+            Transport: &http.Transport{
+                TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+            },
+            Jar: jar,
+        }
+
+        loginSuccess, err := loginToPfSense(client)
+        if err != nil || !loginSuccess {
+            log.Printf("Login to pfSense failed: %v", err)
+            done <- true
+            return
+        }
+
+        for i, row := range rows {
+            if i == 0 {
+                continue
+            }
+            newUsername := row[colIndex["login_username"]]
+            newPassword := row[colIndex["login_password"]]
+            descr := row[colIndex["name"]]
+            discordHandle := row[colIndex["notes"]]
+
+            err := createUser(client, newUsername, newPassword, descr)
+            if err != nil {
+                log.Printf("VPN profile creation failed for %s: %v", newUsername, err)
+                continue
+            }
+            log.Printf("VPN profile for %s was created successfully.", newUsername)
+
+            userID, err := getUserIDByUsername(s, GuildID, discordHandle)
+            if err != nil {
+                log.Printf("Failed to find user ID for %s: %v", discordHandle, err)
+                continue
+            }
+
+            err = notifyUserOnDiscord(s, userID, newUsername, newPassword)
+            if err != nil {
+                log.Printf("Failed to notify %s: %v", discordHandle, err)
+            }
+        }
+
+        cmd := exec.Command("bw", "import", "bitwardencsv", tempFile.Name())
+        cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
+        output, err := cmd.CombinedOutput()
+        if err != nil {
+            log.Printf("Failed to import CSV into Bitwarden: %v\nOutput: %s", err, string(output))
+            done <- true
+            return
+        }
+        log.Printf("Successfully imported CSV into Bitwarden")
+        done <- true
+    }()
+
+    select {
+    case <-done:
+        _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: "All VPN profiles were created successfully, and CSV was imported into your Bitwarden vault.",
+        })
+        if err != nil {
+            log.Printf("Failed to send follow-up message: %v", err)
+        }
+    case <-ctx.Done():
+        log.Printf("Operation timed out")
+        _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: "Error occurred, check logs",
+        })
+        if err != nil {
+            log.Printf("Failed to send error follow-up message: %v", err)
+        }
     }
 }
 
