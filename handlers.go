@@ -14,7 +14,6 @@ import (
     "os/exec"
     "strings"
     "time"
-    "encoding/json"
 )
 
 func handleReady(s *discordgo.Session, r *discordgo.Ready) {
