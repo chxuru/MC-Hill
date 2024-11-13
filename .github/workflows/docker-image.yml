@@ -3,7 +3,7 @@ name: IDK
 on:
   push:
     branches:
-      - main
+      - test-passgen
 jobs:
   build:
     runs-on: ubuntu-latest
