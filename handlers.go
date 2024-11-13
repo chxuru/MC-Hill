@@ -369,7 +369,7 @@ func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCr
     }
     words := strings.ReplaceAll(strings.TrimSpace(string(wordsOutput)), "-", "")
 
-    numberCmd := exec.Command("bw", "generate", "--length", "1", "--number", "--upper=false", "--lower=false", "--special=false")
+    numberCmd := exec.Command("bash", "-c", "bw generate --length 5 --number | head -c 1")
     numberOutput, err := numberCmd.Output()
     if err != nil {
         log.Printf("Failed to generate number for password: %v", err)
@@ -380,7 +380,7 @@ func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCr
     }
     number := strings.TrimSpace(string(numberOutput))
 
-    specialCmd := exec.Command("bw", "generate", "--length", "1", "--special", "--upper=false", "--lower=false", "--number=false")
+    specialCmd := exec.Command("bash", "-c", "bw generate --length 5 --special | head -c 1")
     specialOutput, err := specialCmd.Output()
     if err != nil {
         log.Printf("Failed to generate special character for password: %v", err)
