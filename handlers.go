@@ -328,7 +328,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
     items := parseItems(listOutput)
 
     for _, itemID := range items {
-        moveCmd := exec.Command("bw", "edit", "item", itemID, `{"organizationId": "28e94aa1-83c7-4251-973b-b22601688e21", "collectionIds": ["2fe0bf59-bec8-48da-acd4-b227004964c2"]}`)
+        moveCmd := exec.Command("bw", "edit", "item", itemID, `{"organizationId": "28e94aa1-83c7-4251-973b-b22601688e21", "collectionIds": ["bd9673ac-557e-4352-9430-b227006c88e2"]}`)
         moveCmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
         moveOutput, err := moveCmd.CombinedOutput()
         if err != nil {
