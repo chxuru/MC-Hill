@@ -350,6 +350,52 @@ func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCr
     descr := i.ApplicationCommandData().Options[2].StringValue()
     discordHandle := i.ApplicationCommandData().Options[3].StringValue()
 
+    err = ensureBitwardenLogin()
+    if err != nil {
+        log.Printf("Bitwarden login failed: %v", err)
+        s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: "Error occurred: Bitwarden login failed.",
+        })
+        return
+    }
+
+    tempFile, err := os.CreateTemp("", "single_profile_*.csv")
+    if err != nil {
+        log.Printf("Failed to create temp file: %v", err)
+        s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: "Error occurred: Failed to create temporary file.",
+        })
+        return
+    }
+    defer os.Remove(tempFile.Name())
+
+    csvWriter := csv.NewWriter(tempFile)
+    defer csvWriter.Flush()
+
+    header := []string{"folder", "favorite", "type", "name", "notes", "fields", "reprompt", "login_uri", "login_username", "login_password", "login_totp"}
+    row := []string{"", "", "", descr, discordHandle, "", "", "", newUsername, newPassword, ""}
+
+    if err := csvWriter.Write(header); err != nil {
+        log.Printf("Failed to write CSV header: %v", err)
+        return
+    }
+    if err := csvWriter.Write(row); err != nil {
+        log.Printf("Failed to write CSV row: %v", err)
+        return
+    }
+
+    cmd := exec.Command("bw", "import", "bitwardencsv", tempFile.Name())
+    cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
+    output, err := cmd.CombinedOutput()
+    if err != nil {
+        log.Printf("Failed to import CSV into Bitwarden: %v\nOutput: %s", err, string(output))
+        s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: "Error occurred: Failed to import CSV into Bitwarden.",
+        })
+        return
+    }
+    log.Printf("Successfully imported single profile into Bitwarden")
+
     jar, _ := cookiejar.New(nil)
     client := &http.Client{
         Timeout: 10 * time.Second,
@@ -362,14 +408,21 @@ func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCr
     loginSuccess, err := loginToPfSense(client)
     if err != nil || !loginSuccess {
         log.Printf("Login to pfSense failed: %v", err)
+        s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: "Error occurred: Login to pfSense failed.",
+        })
+        return
     }
 
     err = createUser(client, newUsername, newPassword, descr)
     if err != nil {
         log.Printf("VPN profile creation failed for %s: %v", newUsername, err)
-    } else {
-        log.Printf("VPN profile for %s was created successfully.", newUsername)
+        s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: "Error occurred: Failed to create VPN profile.",
+        })
+        return
     }
+    log.Printf("VPN profile for %s was created successfully.", newUsername)
 
     userID, err := getUserIDByUsername(s, GuildID, discordHandle)
     if err != nil {
@@ -383,12 +436,9 @@ func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCr
         }
     }
 
-    _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-        Content: "VPN profile was created successfully for " + newUsername,
+    s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+        Content: "VPN profile was created successfully for " + newUsername + ", and the profile was imported into Bitwarden.",
     })
-    if err != nil {
-        log.Printf("Failed to send follow-up message: %v", err)
-    }
 }
 
 func handleDisplayCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
