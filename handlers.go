@@ -14,6 +14,7 @@ import (
     "os/exec"
     "strings"
     "time"
+    "context"
 )
 
 func handleReady(s *discordgo.Session, r *discordgo.Ready) {
