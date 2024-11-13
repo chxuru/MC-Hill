@@ -130,6 +130,23 @@ func handleConnsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     }
 }
 
+package main
+
+import (
+    "encoding/csv"
+    "fmt"
+    "io"
+    "log"
+    "net/http"
+    "net/url"
+    "os"
+    "os/exec"
+    "strings"
+    "time"
+
+    "github.com/bwmarrin/discordgo"
+)
+
 func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -157,7 +174,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
     }
     defer response.Body.Close()
 
-    tempFile, err := os.CreateTemp("", "bitwarden_import_*.csv")
+    tempFile, err := os.CreateTemp("", "profile_data_*.csv")
     if err != nil {
         log.Printf("Failed to create temp file: %v", err)
         return
@@ -181,6 +198,21 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
     rows, err := csvReader.ReadAll()
     if err != nil {
         log.Printf("Failed to read CSV file: %v", err)
+        return
+    }
+
+    jar, _ := cookiejar.New(nil)
+    client := &http.Client{
+        Timeout: 10 * time.Second,
+        Transport: &http.Transport{
+            TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+        },
+        Jar: jar,
+    }
+
+    loginSuccess, err := loginToPfSense(client)
+    if err != nil || !loginSuccess {
+        log.Printf("Login to pfSense failed: %v", err)
         return
     }
 
@@ -211,8 +243,31 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
             continue
         }
 
+        newUsername := row[colIndex["login_username"]]
+        newPassword := row[colIndex["login_password"]]
+        descr := row[colIndex["name"]]
+        discordHandle := row[colIndex["notes"]]
+
+        err := createUser(client, newUsername, newPassword, descr)
+        if err != nil {
+            log.Printf("VPN profile creation failed for %s: %v", newUsername, err)
+            continue
+        }
+        log.Printf("VPN profile for %s was created successfully.", newUsername)
+
+        userID, err := getUserIDByUsername(s, GuildID, discordHandle)
+        if err != nil {
+            log.Printf("Failed to find user ID for %s: %v", discordHandle, err)
+            continue
+        }
+
+        err = notifyUserOnDiscord(s, userID, newUsername, newPassword)
+        if err != nil {
+            log.Printf("Failed to notify %s: %v", discordHandle, err)
+        }
+
         itemJSON := fmt.Sprintf(`{
-            "type": 1,  // Login type in Bitwarden
+            "type": 1,
             "name": "%s",
             "login": {
                 "username": "%s",
@@ -220,21 +275,21 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
                 "uris": [{"uri": "%s"}]
             },
             "notes": "%s"
-        }`, row[colIndex["name"]], row[colIndex["login_username"]], row[colIndex["login_password"]], row[colIndex["login_uri"]], row[colIndex["notes"]])
+        }`, descr, newUsername, newPassword, row[colIndex["login_uri"]], discordHandle)
 
         cmd := exec.Command("bw", "create", "item", itemJSON)
         cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
 
         output, err := cmd.CombinedOutput()
         if err != nil {
-            log.Printf("Failed to add item to Bitwarden for %s: %v\nOutput: %s", row[colIndex["name"]], err, string(output))
+            log.Printf("Failed to add item to Bitwarden for %s: %v\nOutput: %s", descr, err, string(output))
         } else {
-            log.Printf("Added %s to Bitwarden", row[colIndex["name"]])
+            log.Printf("Added %s to Bitwarden", descr)
         }
     }
 
     _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-        Content: "All items were successfully imported into Bitwarden.",
+        Content: "All VPN profiles were created, users notified, and items imported into Bitwarden successfully.",
     })
     if err != nil {
         log.Printf("Failed to send follow-up message: %v", err)
