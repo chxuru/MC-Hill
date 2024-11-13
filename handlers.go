@@ -176,12 +176,13 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         return
     }
 
-    done := make(chan bool)
+    done := make(chan string)
+
     go func() {
         err = ensureBitwardenLogin()
         if err != nil {
             log.Printf("Bitwarden login failed: %v", err)
-            done <- true
+            done <- "Error occurred: Bitwarden login failed."
             return
         }
 
@@ -189,7 +190,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         csvAttachment, ok := i.ApplicationCommandData().Resolved.Attachments[attachmentID]
         if !ok {
             log.Printf("Failed to retrieve CSV attachment")
-            done <- true
+            done <- "Error occurred: Failed to retrieve CSV attachment."
             return
         }
         csvFileURL := csvAttachment.URL
@@ -197,7 +198,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         response, err := http.Get(csvFileURL)
         if err != nil {
             log.Printf("Failed to download CSV file: %v", err)
-            done <- true
+            done <- "Error occurred: Failed to download CSV file."
             return
         }
         defer response.Body.Close()
@@ -205,7 +206,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         tempFile, err := os.CreateTemp("", "profile_data_*.csv")
         if err != nil {
             log.Printf("Failed to create temp file: %v", err)
-            done <- true
+            done <- "Error occurred: Failed to create temporary file."
             return
         }
         defer os.Remove(tempFile.Name())
@@ -213,14 +214,14 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         _, err = io.Copy(tempFile, response.Body)
         if err != nil {
             log.Printf("Failed to save CSV file: %v", err)
-            done <- true
+            done <- "Error occurred: Failed to save CSV file."
             return
         }
 
         file, err := os.Open(tempFile.Name())
         if err != nil {
             log.Printf("Failed to open CSV file: %v", err)
-            done <- true
+            done <- "Error occurred: Failed to open CSV file."
             return
         }
         defer file.Close()
@@ -229,7 +230,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         rows, err := csvReader.ReadAll()
         if err != nil {
             log.Printf("Failed to read CSV file: %v", err)
-            done <- true
+            done <- "Error occurred: Failed to read CSV file."
             return
         }
 
@@ -250,8 +251,9 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 
         for key, idx := range colIndex {
             if idx == -1 {
-                log.Printf("Missing required column: %s", key)
-                done <- true
+                errorMsg := fmt.Sprintf("Error occurred: Missing required column: %s", key)
+                log.Printf(errorMsg)
+                done <- errorMsg
                 return
             }
         }
@@ -268,7 +270,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         loginSuccess, err := loginToPfSense(client)
         if err != nil || !loginSuccess {
             log.Printf("Login to pfSense failed: %v", err)
-            done <- true
+            done <- "Error occurred: Login to pfSense failed."
             return
         }
 
@@ -305,17 +307,17 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         output, err := cmd.CombinedOutput()
         if err != nil {
             log.Printf("Failed to import CSV into Bitwarden: %v\nOutput: %s", err, string(output))
-            done <- true
+            done <- "Error occurred: Failed to import CSV into Bitwarden."
             return
         }
         log.Printf("Successfully imported CSV into Bitwarden")
-        done <- true
+        done <- "All VPN profiles were created successfully, and CSV was imported into your Bitwarden vault."
     }()
 
     select {
-    case <-done:
+    case result := <-done:
         _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-            Content: "All VPN profiles were created successfully, and CSV was imported into your Bitwarden vault.",
+            Content: result,
         })
         if err != nil {
             log.Printf("Failed to send follow-up message: %v", err)
