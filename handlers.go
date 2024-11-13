@@ -130,8 +130,37 @@ func handleConnsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     }
 }
 
+func ensureBitwardenLogin() error {
+    cmd := exec.Command("bw", "status")
+    output, err := cmd.CombinedOutput()
+    if err == nil && strings.Contains(string(output), "locked") {
+        unlockCmd := exec.Command("bw", "unlock", "--raw")
+        _, unlockErr := unlockCmd.Output()
+        if unlockErr != nil {
+            return fmt.Errorf("failed to unlock Bitwarden: %v", unlockErr)
+        }
+    } else if err != nil || strings.Contains(string(output), "unauthenticated") {
+        loginCmd := exec.Command("bw", "login", "--apikey")
+        loginCmd.Env = append(os.Environ(),
+            "BW_CLIENTID="+os.Getenv("CLIENT_ID"),
+            "BW_CLIENTSECRET="+os.Getenv("CLIENT_SECRET"))
+        loginOutput, loginErr := loginCmd.CombinedOutput()
+        if loginErr != nil {
+            return fmt.Errorf("failed to log in to Bitwarden with API Key: %v\nOutput: %s", loginErr, string(loginOutput))
+        }
+    }
+
+    return nil
+}
+
 func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-    err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+    err := ensureBitwardenLogin()
+    if err != nil {
+        log.Printf("Bitwarden login failed: %v", err)
+        return
+    }
+
+    err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
         Data: &discordgo.InteractionResponseData{
             Content: "Processing your request...",
@@ -184,28 +213,13 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         return
     }
 
-    jar, _ := cookiejar.New(nil)
-    client := &http.Client{
-        Timeout: 10 * time.Second,
-        Transport: &http.Transport{
-            TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-        },
-        Jar: jar,
-    }
-
-    loginSuccess, err := loginToPfSense(client)
-    if err != nil || !loginSuccess {
-        log.Printf("Login to pfSense failed: %v", err)
-        return
-    }
-
     header := rows[0]
     colIndex := map[string]int{
         "name":           -1,
         "notes":          -1,
-        "login_uri":      -1,
         "login_username": -1,
         "login_password": -1,
+        "login_uri":      -1,
     }
 
     for idx, colName := range header {
@@ -221,11 +235,25 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         }
     }
 
+    jar, _ := cookiejar.New(nil)
+    client := &http.Client{
+        Timeout: 10 * time.Second,
+        Transport: &http.Transport{
+            TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+        },
+        Jar: jar,
+    }
+
+    loginSuccess, err := loginToPfSense(client)
+    if err != nil || !loginSuccess {
+        log.Printf("Login to pfSense failed: %v", err)
+        return
+    }
+
     for i, row := range rows {
         if i == 0 {
             continue
         }
-
         newUsername := row[colIndex["login_username"]]
         newPassword := row[colIndex["login_password"]]
         descr := row[colIndex["name"]]
@@ -248,31 +276,19 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         if err != nil {
             log.Printf("Failed to notify %s: %v", discordHandle, err)
         }
+    }
 
-        itemJSON := fmt.Sprintf(`{
-            "type": 1,
-            "name": "%s",
-            "login": {
-                "username": "%s",
-                "password": "%s",
-                "uris": [{"uri": "%s"}]
-            },
-            "notes": "%s"
-        }`, descr, newUsername, newPassword, row[colIndex["login_uri"]], discordHandle)
-
-        cmd := exec.Command("bw", "create", "item", itemJSON)
-        cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
-
-        output, err := cmd.CombinedOutput()
-        if err != nil {
-            log.Printf("Failed to add item to Bitwarden for %s: %v\nOutput: %s", descr, err, string(output))
-        } else {
-            log.Printf("Added %s to Bitwarden", descr)
-        }
+    cmd := exec.Command("bw", "import", "bitwarden_csv", tempFile.Name())
+    cmd.Env = append(os.Environ(), "BW_CLIENTID="+os.Getenv("CLIENT_ID"), "BW_CLIENTSECRET="+os.Getenv("CLIENT_SECRET"))
+    output, err := cmd.CombinedOutput()
+    if err != nil {
+        log.Printf("Failed to import CSV into Bitwarden: %v\nOutput: %s", err, string(output))
+    } else {
+        log.Printf("Successfully imported CSV into Bitwarden")
     }
 
     _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-        Content: "All VPN profiles were created, users notified, and items imported into Bitwarden successfully.",
+        Content: "All VPN profiles were created successfully, and CSV was imported into Bitwarden.",
     })
     if err != nil {
         log.Printf("Failed to send follow-up message: %v", err)
