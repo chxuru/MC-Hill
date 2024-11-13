@@ -11,8 +11,10 @@ import (
     "net/http"
     "net/http/cookiejar"
     "os"
+    "os/exec"
     "strings"
     "time"
+    "context"
 )
 
 func handleReady(s *discordgo.Session, r *discordgo.Ready) {
@@ -129,108 +131,205 @@ func handleConnsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     }
 }
 
+func ensureBitwardenLogin() error {
+    cmd := exec.Command("bw", "status")
+    output, err := cmd.CombinedOutput()
+    if err == nil && strings.Contains(string(output), "locked") {
+        unlockCmd := exec.Command("bw", "unlock", "--raw")
+        unlockCmd.Stdin = strings.NewReader(os.Getenv("BITWARDEN_MASTER_PASSWORD"))
+        sessionKey, unlockErr := unlockCmd.Output()
+        if unlockErr != nil {
+            return fmt.Errorf("failed to unlock Bitwarden: %v", unlockErr)
+        }
+        os.Setenv("BW_SESSION", strings.TrimSpace(string(sessionKey)))
+    } else if err != nil || strings.Contains(string(output), "unauthenticated") {
+        loginCmd := exec.Command("bw", "login", "--apikey")
+        loginCmd.Env = append(os.Environ(),
+            "BW_CLIENTID="+os.Getenv("CLIENT_ID"),
+            "BW_CLIENTSECRET="+os.Getenv("CLIENT_SECRET"))
+        loginOutput, loginErr := loginCmd.CombinedOutput()
+        if loginErr != nil {
+            return fmt.Errorf("failed to log in to Bitwarden with API Key: %v\nOutput: %s", loginErr, string(loginOutput))
+        }
+
+        unlockCmd := exec.Command("bw", "unlock", "--raw")
+        unlockCmd.Stdin = strings.NewReader(os.Getenv("BITWARDEN_MASTER_PASSWORD"))
+        sessionKey, unlockErr := unlockCmd.Output()
+        if unlockErr != nil {
+            return fmt.Errorf("failed to unlock Bitwarden after login: %v", unlockErr)
+        }
+        os.Setenv("BW_SESSION", strings.TrimSpace(string(sessionKey)))
+    }
+
+    return nil
+}
+
 func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+
     err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-        Data: &discordgo.InteractionResponseData{
-            Content: "Processing your request...",
-        },
     })
     if err != nil {
-        log.Printf("Failed to send initial response: %v", err)
+        log.Printf("Failed to send initial deferred response: %v", err)
         return
     }
 
-    attachmentID := i.ApplicationCommandData().Options[0].Value.(string)
-    csvAttachment, ok := i.ApplicationCommandData().Resolved.Attachments[attachmentID]
-    if !ok {
-        log.Printf("Failed to retrieve CSV attachment")
-        return
-    }
-    csvFileURL := csvAttachment.URL
+    done := make(chan string)
 
-    response, err := http.Get(csvFileURL)
-    if err != nil {
-        log.Printf("Failed to download CSV file: %v", err)
-        return
-    }
-    defer response.Body.Close()
-
-    tempFile, err := os.CreateTemp("", "profile_data_*.csv")
-    if err != nil {
-        log.Printf("Failed to create temp file: %v", err)
-        return
-    }
-    defer os.Remove(tempFile.Name())
-
-    _, err = io.Copy(tempFile, response.Body)
-    if err != nil {
-        log.Printf("Failed to save CSV file: %v", err)
-        return
-    }
-
-    file, err := os.Open(tempFile.Name())
-    if err != nil {
-        log.Printf("Failed to open CSV file: %v", err)
-        return
-    }
-    defer file.Close()
-
-    csvReader := csv.NewReader(file)
-    rows, err := csvReader.ReadAll()
-    if err != nil {
-        log.Printf("Failed to read CSV file: %v", err)
-        return
-    }
-
-    jar, _ := cookiejar.New(nil)
-    client := &http.Client{
-        Timeout: 10 * time.Second,
-        Transport: &http.Transport{
-            TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-        },
-        Jar: jar,
-    }
-
-    loginSuccess, err := loginToPfSense(client)
-    if err != nil || !loginSuccess {
-        log.Printf("Login to pfSense failed: %v", err)
-        return
-    }
-
-    for i, row := range rows {
-        if i == 0 || len(row) < 4 {
-            continue
-        }
-        newUsername := row[0]
-        newPassword := row[1]
-        descr := row[2]
-        discordHandle := row[3]
-
-        err := createUser(client, newUsername, newPassword, descr)
+    go func() {
+        err = ensureBitwardenLogin()
         if err != nil {
-            log.Printf("VPN profile creation failed for %s: %v", newUsername, err)
-            continue
+            log.Printf("Bitwarden login failed: %v", err)
+            done <- "Error occurred: Bitwarden login failed."
+            return
         }
-        log.Printf("VPN profile for %s was created successfully.", newUsername)
 
-        userID, err := getUserIDByUsername(s, GuildID, discordHandle)
+        attachmentID := i.ApplicationCommandData().Options[0].Value.(string)
+        csvAttachment, ok := i.ApplicationCommandData().Resolved.Attachments[attachmentID]
+        if !ok {
+            log.Printf("Failed to retrieve CSV attachment")
+            done <- "Error occurred: Failed to retrieve CSV attachment."
+            return
+        }
+        csvFileURL := csvAttachment.URL
+
+        response, err := http.Get(csvFileURL)
         if err != nil {
-            log.Printf("Failed to find user ID for %s: %v", discordHandle, err)
-            continue
+            log.Printf("Failed to download CSV file: %v", err)
+            done <- "Error occurred: Failed to download CSV file."
+            return
         }
+        defer response.Body.Close()
 
-        err = notifyUserOnDiscord(s, userID, newUsername, newPassword)
+        tempFile, err := os.CreateTemp("", "profile_data_*.csv")
         if err != nil {
-            log.Printf("Failed to notify %s: %v", discordHandle, err)
+            log.Printf("Failed to create temp file: %v", err)
+            done <- "Error occurred: Failed to create temporary file."
+            return
         }
-    }
+        defer os.Remove(tempFile.Name())
 
-    _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-        Content: "All VPN profiles were created successfully.",
-    })
-    if err != nil {
-        log.Printf("Failed to send follow-up message: %v", err)
+        _, err = io.Copy(tempFile, response.Body)
+        if err != nil {
+            log.Printf("Failed to save CSV file: %v", err)
+            done <- "Error occurred: Failed to save CSV file."
+            return
+        }
+
+        file, err := os.Open(tempFile.Name())
+        if err != nil {
+            log.Printf("Failed to open CSV file: %v", err)
+            done <- "Error occurred: Failed to open CSV file."
+            return
+        }
+        defer file.Close()
+
+        csvReader := csv.NewReader(file)
+        rows, err := csvReader.ReadAll()
+        if err != nil {
+            log.Printf("Failed to read CSV file: %v", err)
+            done <- "Error occurred: Failed to read CSV file."
+            return
+        }
+
+        header := rows[0]
+        colIndex := map[string]int{
+            "name":           -1,
+            "notes":          -1,
+            "login_username": -1,
+            "login_password": -1,
+            "login_uri":      -1,
+        }
+
+        for idx, colName := range header {
+            if _, ok := colIndex[colName]; ok {
+                colIndex[colName] = idx
+            }
+        }
+
+        for key, idx := range colIndex {
+            if idx == -1 {
+                errorMsg := fmt.Sprintf("Error occurred: Missing required column: %s", key)
+                log.Printf(errorMsg)
+                done <- errorMsg
+                return
+            }
+        }
+
+        jar, _ := cookiejar.New(nil)
+        client := &http.Client{
+            Timeout: 10 * time.Second,
+            Transport: &http.Transport{
+                TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+            },
+            Jar: jar,
+        }
+
+        loginSuccess, err := loginToPfSense(client)
+        if err != nil || !loginSuccess {
+            log.Printf("Login to pfSense failed: %v", err)
+            done <- "Error occurred: Login to pfSense failed."
+            return
+        }
+
+        for i, row := range rows {
+            if i == 0 {
+                continue
+            }
+            newUsername := row[colIndex["login_username"]]
+            newPassword := row[colIndex["login_password"]]
+            descr := row[colIndex["name"]]
+            discordHandle := row[colIndex["notes"]]
+
+            err := createUser(client, newUsername, newPassword, descr)
+            if err != nil {
+                log.Printf("VPN profile creation failed for %s: %v", newUsername, err)
+                continue
+            }
+            log.Printf("VPN profile for %s was created successfully.", newUsername)
+
+            userID, err := getUserIDByUsername(s, GuildID, discordHandle)
+            if err != nil {
+                log.Printf("Failed to find user ID for %s: %v", discordHandle, err)
+                continue
+            }
+
+            err = notifyUserOnDiscord(s, userID, newUsername, newPassword)
+            if err != nil {
+                log.Printf("Failed to notify %s: %v", discordHandle, err)
+            }
+        }
+
+        cmd := exec.Command("bw", "import", "bitwardencsv", tempFile.Name())
+        cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
+        output, err := cmd.CombinedOutput()
+        if err != nil {
+            log.Printf("Failed to import CSV into Bitwarden: %v\nOutput: %s", err, string(output))
+            done <- "Error occurred: Failed to import CSV into Bitwarden."
+            return
+        }
+        log.Printf("Successfully imported CSV into Bitwarden")
+        done <- "All VPN profiles were created successfully, and CSV was imported into your Bitwarden vault."
+    }()
+
+    select {
+    case result := <-done:
+        _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: result,
+        })
+        if err != nil {
+            log.Printf("Failed to send follow-up message: %v", err)
+        }
+    case <-ctx.Done():
+        log.Printf("Operation timed out")
+        _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: "Error occurred, check logs",
+        })
+        if err != nil {
+            log.Printf("Failed to send error follow-up message: %v", err)
+        }
     }
 }
 
