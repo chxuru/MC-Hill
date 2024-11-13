@@ -164,40 +164,18 @@ func ensureBitwardenLogin() error {
     return nil
 }
 
-func parseItems(jsonData []byte) []string {
-    var items []map[string]interface{}
-    var itemIDs []string
-
-    err := json.Unmarshal(jsonData, &items)
-    if err != nil {
-        log.Printf("Failed to parse items JSON: %v", err)
-        return itemIDs
-    }
-
-    for _, item := range items {
-        if id, ok := item["id"].(string); ok {
-            itemIDs = append(itemIDs, id)
-        }
-    }
-
-    return itemIDs
-}
-
 func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-    err := ensureBitwardenLogin()
+    err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+        Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+    })
     if err != nil {
-        log.Printf("Bitwarden login failed: %v", err)
+        log.Printf("Failed to send initial deferred response: %v", err)
         return
     }
 
-    err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-        Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-        Data: &discordgo.InteractionResponseData{
-            Content: "Processing your request...",
-        },
-    })
+    err = ensureBitwardenLogin()
     if err != nil {
-        log.Printf("Failed to send initial response: %v", err)
+        log.Printf("Bitwarden login failed: %v", err)
         return
     }
 
@@ -308,7 +286,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         }
     }
 
-    cmd := exec.Command("bw", "import", "bitwardencsv", tempFile.Name())
+    cmd := exec.Command("bw", "import", "bitwarden", tempFile.Name())
     cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
     output, err := cmd.CombinedOutput()
     if err != nil {
@@ -317,29 +295,8 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
     }
     log.Printf("Successfully imported CSV into Bitwarden")
 
-    listCmd := exec.Command("bw", "list", "items")
-    listCmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
-    listOutput, err := listCmd.CombinedOutput()
-    if err != nil {
-        log.Printf("Failed to list items: %v\nOutput: %s", err, string(listOutput))
-        return
-    }
-
-    items := parseItems(listOutput)
-
-    for _, itemID := range items {
-        moveCmd := exec.Command("bw", "edit", "item", itemID, `{"organizationId": "28e94aa1-83c7-4251-973b-b22601688e21", "collectionIds": ["bd9673ac-557e-4352-9430-b227006c88e2"]}`)
-        moveCmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
-        moveOutput, err := moveCmd.CombinedOutput()
-        if err != nil {
-            log.Printf("Failed to move item %s to organization collection: %v\nOutput: %s", itemID, err, string(moveOutput))
-        } else {
-            log.Printf("Successfully moved item %s to organization collection", itemID)
-        }
-    }
-
     _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-        Content: "All VPN profiles were created successfully, and items were moved to the SDC collection in SOC/SDC.",
+        Content: "All VPN profiles were created successfully, and CSV was imported into your Bitwarden vault.",
     })
     if err != nil {
         log.Printf("Failed to send follow-up message: %v", err)
