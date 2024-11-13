@@ -3,7 +3,7 @@ name: IDK
 on:
   push:
     branches:
-      - test-bitwarden2
+      - main
 jobs:
   build:
     runs-on: ubuntu-latest
