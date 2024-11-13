@@ -346,9 +346,8 @@ func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCr
     }
 
     newUsername := i.ApplicationCommandData().Options[0].StringValue()
-    newPassword := i.ApplicationCommandData().Options[1].StringValue()
-    descr := i.ApplicationCommandData().Options[2].StringValue()
-    discordHandle := i.ApplicationCommandData().Options[3].StringValue()
+    descr := i.ApplicationCommandData().Options[1].StringValue()
+    discordHandle := i.ApplicationCommandData().Options[2].StringValue()
 
     err = ensureBitwardenLogin()
     if err != nil {
@@ -358,6 +357,41 @@ func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCr
         })
         return
     }
+
+    wordsCmd := exec.Command("bw", "generate", "--passphrase", "--words", "3", "--separator", "-")
+    wordsOutput, err := wordsCmd.Output()
+    if err != nil {
+        log.Printf("Failed to generate words for password: %v", err)
+        s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: "Error occurred: Failed to generate password.",
+        })
+        return
+    }
+    words := strings.ReplaceAll(strings.TrimSpace(string(wordsOutput)), "-", "")
+
+    numberCmd := exec.Command("bash", "-c", "bw generate --length 5 --number | head -c 1")
+    numberOutput, err := numberCmd.Output()
+    if err != nil {
+        log.Printf("Failed to generate number for password: %v", err)
+        s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: "Error occurred: Failed to generate password.",
+        })
+        return
+    }
+    number := strings.TrimSpace(string(numberOutput))
+
+    specialCmd := exec.Command("bash", "-c", "bw generate --length 5 --special | head -c 1")
+    specialOutput, err := specialCmd.Output()
+    if err != nil {
+        log.Printf("Failed to generate special character for password: %v", err)
+        s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: "Error occurred: Failed to generate password.",
+        })
+        return
+    }
+    specialChar := strings.TrimSpace(string(specialOutput))
+
+    newPassword := words + number + specialChar
 
     tempFile, err := os.CreateTemp("", "single_profile_*.csv")
     if err != nil {
