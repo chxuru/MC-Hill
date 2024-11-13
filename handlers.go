@@ -164,6 +164,25 @@ func ensureBitwardenLogin() error {
     return nil
 }
 
+func parseItems(jsonData []byte) []string {
+    var items []map[string]interface{}
+    var itemIDs []string
+
+    err := json.Unmarshal(jsonData, &items)
+    if err != nil {
+        log.Printf("Failed to parse items JSON: %v", err)
+        return itemIDs
+    }
+
+    for _, item := range items {
+        if id, ok := item["id"].(string); ok {
+            itemIDs = append(itemIDs, id)
+        }
+    }
+
+    return itemIDs
+}
+
 func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     err := ensureBitwardenLogin()
     if err != nil {
@@ -309,41 +328,22 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
     items := parseItems(listOutput)
 
     for _, itemID := range items {
-        moveCmd := exec.Command("bw", "edit", "item", itemID, `{"organizationId": "28e94aa1-83c7-4251-973b-b22601688e21"}`)
+        moveCmd := exec.Command("bw", "edit", "item", itemID, `{"organizationId": "28e94aa1-83c7-4251-973b-b22601688e21", "collectionIds": ["2fe0bf59-bec8-48da-acd4-b227004964c2"]}`)
         moveCmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
         moveOutput, err := moveCmd.CombinedOutput()
         if err != nil {
-            log.Printf("Failed to move item %s to organization: %v\nOutput: %s", itemID, err, string(moveOutput))
+            log.Printf("Failed to move item %s to organization collection: %v\nOutput: %s", itemID, err, string(moveOutput))
         } else {
-            log.Printf("Successfully moved item %s to organization", itemID)
+            log.Printf("Successfully moved item %s to organization collection", itemID)
         }
     }
 
     _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-        Content: "All VPN profiles were created successfully, and items were moved to SOC/SDC.",
+        Content: "All VPN profiles were created successfully, and items were moved to the SDC collection in SOC/SDC.",
     })
     if err != nil {
         log.Printf("Failed to send follow-up message: %v", err)
     }
-}
-
-func parseItems(jsonData []byte) []string {
-    var items []map[string]interface{}
-    var itemIDs []string
-
-    err := json.Unmarshal(jsonData, &items)
-    if err != nil {
-        log.Printf("Failed to parse items JSON: %v", err)
-        return itemIDs
-    }
-
-    for _, item := range items {
-        if id, ok := item["id"].(string); ok {
-            itemIDs = append(itemIDs, id)
-        }
-    }
-
-    return itemIDs
 }
 
 func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
