@@ -326,6 +326,25 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
     }
 }
 
+func parseItems(jsonData []byte) []string {
+    var items []map[string]interface{}
+    var itemIDs []string
+
+    err := json.Unmarshal(jsonData, &items)
+    if err != nil {
+        log.Printf("Failed to parse items JSON: %v", err)
+        return itemIDs
+    }
+
+    for _, item := range items {
+        if id, ok := item["id"].(string); ok {
+            itemIDs = append(itemIDs, id)
+        }
+    }
+
+    return itemIDs
+}
+
 func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
