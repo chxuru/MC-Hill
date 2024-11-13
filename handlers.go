@@ -285,7 +285,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
         }
     }
 
-    cmd := exec.Command("bw", "import", "bitwarden", tempFile.Name())
+    cmd := exec.Command("bw", "import", "bitwardencsv", tempFile.Name())
     cmd.Env = append(os.Environ(), "BW_SESSION="+os.Getenv("BW_SESSION"))
     output, err := cmd.CombinedOutput()
     if err != nil {
