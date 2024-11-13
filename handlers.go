@@ -314,7 +314,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
             descr := row[colIndex["name"]]
             discordHandle := row[colIndex["notes"]]
 
-            err := createUser(client, newUsername, newPassword, descr)
+            err = createUser(client, newUsername, newPassword, descr)
             if err != nil {
                 log.Printf("VPN profile creation failed for %s: %v", newUsername, err)
                 continue
