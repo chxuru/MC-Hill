@@ -80,7 +80,6 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
         log.Printf("Failed to generate password: %v", err)
         return
     }
-    log.Printf("Generated password for user %s: %s", username, password)
 
     quotedPassword := fmt.Sprintf("\"%s\"", password)
     encoder := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder()
@@ -127,10 +126,22 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
         return
     }
 
+    userID, err := getUserIDByUsername(s, i.GuildID, username)
+    if err != nil {
+        log.Printf("Failed to find user ID for %s: %v", username, err)
+        return
+    }
+
+    err = notifyUserWithKaminoElsaCredentials(s, userID, username, password)
+    if err != nil {
+        log.Printf("Failed to notify user %s: %v", username, err)
+        return
+    }
+
     s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseChannelMessageWithSource,
         Data: &discordgo.InteractionResponseData{
-            Content: fmt.Sprintf("User %s successfully created and added to Kamino Users group.", username),
+            Content: fmt.Sprintf("User %s successfully created, added to Kamino Users group, and notified with credentials.", username),
         },
     })
 }
@@ -144,4 +155,24 @@ func transformString(t transform.Transformer, s string) (string, error) {
     }
     writer.Close()
     return buf.String(), nil
+}
+
+func notifyUserWithKaminoElsaCredentials(s *discordgo.Session, userID, username, password string) error {
+    channel, err := s.UserChannelCreate(userID)
+    if err != nil {
+        return fmt.Errorf("failed to create DM channel for user ID %s: %w", userID, err)
+    }
+
+    message := fmt.Sprintf(
+        "Hi, here are your credentials which can be used to access both Kamino and Elsa. DM @chxuru on Discord if you have any questions.\n\n"+
+            "Credentials\nUsername: ||%s||\nPassword: ||%s||",
+        username, password,
+    )
+
+    _, err = s.ChannelMessageSend(channel.ID, message)
+    if err != nil {
+        return fmt.Errorf("failed to send message to user ID %s: %w", userID, err)
+    }
+
+    return nil
 }
