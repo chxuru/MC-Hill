@@ -43,7 +43,7 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
     }
     defer l.Close()
 
-    userDN := fmt.Sprintf("cn=%s,%s", username, LDAP_USERS_DN)
+    userDN := fmt.Sprintf("cn=%s,%s", username, LDAPUsersDN)
 
     addRequest := ldap.NewAddRequest(userDN, nil)
     addRequest.Attribute("objectClass", []string{"top", "person", "organizationalPerson", "user"})
@@ -80,7 +80,7 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
         return
     }
 
-    groupDN := LDAP_GROUP_DN
+    groupDN := LDAPGroupDN
     modifyGroupRequest := ldap.NewModifyRequest(groupDN, nil)
     modifyGroupRequest.Add("member", []string{userDN})
 
@@ -109,13 +109,7 @@ func handleKaminoAddCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 }
 
 func handleKaminoDeleteCommand(s *discordgo.Session, i *discordgo.InteractionCreate, username string) {
-    err := DeleteUserFromGroup(username)
-    var response string
-    if err != nil {
-        response = fmt.Sprintf("Failed to remove user %s from Kamino group: %v", username, err)
-    } else {
-        response = fmt.Sprintf("User %s successfully removed from Kamino group.", username)
-    }
+    response := fmt.Sprintf("Deletion of user %s from Kamino Users group is not currently implemented.", username)
     s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseChannelMessageWithSource,
         Data: &discordgo.InteractionResponseData{
