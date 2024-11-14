@@ -52,7 +52,21 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
             handleStatusCommand(s, i)
         case "kill":
             handleKillCommand(s, i)
+        case "kamino":
+            handleKaminoCommand(s, i)
         }
+    }
+}
+
+func handleKaminoCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+    subcommand := i.ApplicationCommandData().Options[0].Name
+    username := i.ApplicationCommandData().Options[0].Options[0].StringValue()
+
+    switch subcommand {
+    case "add":
+        handleKaminoAddCommand(s, i, username)
+    case "delete":
+        handleKaminoDeleteCommand(s, i, username)
     }
 }
 
