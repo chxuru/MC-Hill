@@ -10,4 +10,5 @@ require (
 	golang.org/x/crypto v0.27.0
 	golang.org/x/net v0.29.0
 	golang.org/x/sys v0.25.0
+	github.com/go-ldap/ldap/v3 v3.4.8
 )
