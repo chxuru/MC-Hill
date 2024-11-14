@@ -1,10 +1,10 @@
 package main
 
 import (
+    "crypto/tls"
     "fmt"
     "log"
     "github.com/go-ldap/ldap/v3"
-    "crypto/tls"
     "github.com/bwmarrin/discordgo"
     "strings"
 )
@@ -35,61 +35,77 @@ func connectLDAP() (*ldap.Conn, error) {
     return l, nil
 }
 
-func AddUserToGroup(username string) error {
+func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreate, username string) {
     l, err := connectLDAP()
     if err != nil {
-        return err
-    }
-    defer l.Close()
-    fmt.Println("LDAP_INSECURE_TLS:", LDAPInsecureTLS)
-    userDN := fmt.Sprintf("%s=%s,%s", LDAPUserAttribute, username, LDAPUsersDN)
-    modifyRequest := ldap.NewModifyRequest(LDAPGroupDN, nil)
-    modifyRequest.Add("member", []string{userDN})
-    fmt.Println("LDAP_INSECURE_TLS:", LDAPInsecureTLS)
-    err = l.Modify(modifyRequest)
-    if err != nil {
-        return fmt.Errorf("failed to add user to Kamino group: %v", err)
-    }
-
-    log.Printf("User %s added to Kamino group", username)
-    return nil
-}
-
-func DeleteUserFromGroup(username string) error {
-    l, err := connectLDAP()
-    if err != nil {
-        return err
+        log.Printf("Failed to connect to LDAP: %v", err)
+        return
     }
     defer l.Close()
 
-    userDN := fmt.Sprintf("%s=%s,%s", LDAPUserAttribute, username, LDAPUsersDN)
-    modifyRequest := ldap.NewModifyRequest(LDAPGroupDN, nil)
-    modifyRequest.Delete("member", []string{userDN})
+    userDN := fmt.Sprintf("cn=%s,%s", username, LDAP_USERS_DN)
+
+    addRequest := ldap.NewAddRequest(userDN, nil)
+    addRequest.Attribute("objectClass", []string{"top", "person", "organizationalPerson", "user"})
+    addRequest.Attribute("cn", []string{username})
+    addRequest.Attribute("sAMAccountName", []string{username})
+    addRequest.Attribute("userPassword", []string{"testpassword123!"})
+    addRequest.Attribute("userPrincipalName", []string{username + "@sdc.cpp"})
+    addRequest.Attribute("displayName", []string{username})
+
+    err = l.Add(addRequest)
+    if err != nil {
+        log.Printf("Failed to create user %s: %v", username, err)
+        s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+            Type: discordgo.InteractionResponseChannelMessageWithSource,
+            Data: &discordgo.InteractionResponseData{
+                Content: fmt.Sprintf("Failed to create user %s: %v", username, err),
+            },
+        })
+        return
+    }
+
+    modifyRequest := ldap.NewModifyRequest(userDN, nil)
+    modifyRequest.Replace("userAccountControl", []string{"512"})
 
     err = l.Modify(modifyRequest)
     if err != nil {
-        return fmt.Errorf("failed to remove user from Kamino group: %v", err)
+        log.Printf("Failed to enable user %s: %v", username, err)
+        s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+            Type: discordgo.InteractionResponseChannelMessageWithSource,
+            Data: &discordgo.InteractionResponseData{
+                Content: fmt.Sprintf("Failed to enable user %s: %v", username, err),
+            },
+        })
+        return
     }
 
-    log.Printf("User %s removed from Kamino group", username)
-    return nil
-}
+    groupDN := LDAP_GROUP_DN
+    modifyGroupRequest := ldap.NewModifyRequest(groupDN, nil)
+    modifyGroupRequest.Add("member", []string{userDN})
 
-func handleKaminoAddCommand(s *discordgo.Session, i *discordgo.InteractionCreate, username string) {
-    fmt.Println("LDAP_INSECURE_TLS:", LDAPInsecureTLS)
-    err := AddUserToGroup(username)
-    var response string
+    err = l.Modify(modifyGroupRequest)
     if err != nil {
-        response = fmt.Sprintf("Failed to add user %s to Kamino group: %v", username, err)
-    } else {
-        response = fmt.Sprintf("User %s successfully added to Kamino group.", username)
+        log.Printf("Failed to add user %s to Kamino Users group: %v", username, err)
+        s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+            Type: discordgo.InteractionResponseChannelMessageWithSource,
+            Data: &discordgo.InteractionResponseData{
+                Content: fmt.Sprintf("Failed to add user %s to Kamino Users group: %v", username, err),
+            },
+        })
+        return
     }
+
     s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseChannelMessageWithSource,
         Data: &discordgo.InteractionResponseData{
-            Content: response,
+            Content: fmt.Sprintf("User %s successfully created and added to Kamino Users group.", username),
         },
     })
+}
+
+func handleKaminoAddCommand(s *discordgo.Session, i *discordgo.InteractionCreate, username string) {
+    createUserAndAddToGroup(s, i, username)
 }
 
 func handleKaminoDeleteCommand(s *discordgo.Session, i *discordgo.InteractionCreate, username string) {
