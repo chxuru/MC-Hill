@@ -60,14 +60,28 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 func handleKaminoCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     subcommand := i.ApplicationCommandData().Options[0].Name
-    username := i.ApplicationCommandData().Options[0].Options[0].StringValue()
-    discordHandle := i.ApplicationCommandData().Options[1].Options[1].StringValue()
+
+    options := i.ApplicationCommandData().Options[0].Options
+
+    if len(options) < 2 {
+        s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+            Type: discordgo.InteractionResponseChannelMessageWithSource,
+            Data: &discordgo.InteractionResponseData{
+                Content: "Error: Missing required options. Please provide both username and discord handle.",
+            },
+        })
+        log.Println("Error: Missing required options for /kamino add command.")
+        return
+    }
+
+    username := options[0].StringValue()
+    discordHandle := options[1].StringValue()
 
     switch subcommand {
     case "add":
         createUserAndAddToGroup(s, i, username, discordHandle)
     case "delete":
-        createUserAndAddToGroup(s, i, username, discordHandle)
+        log.Printf("Not ready byebye")
     }
 }
 
