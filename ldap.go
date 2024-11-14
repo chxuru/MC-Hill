@@ -183,3 +183,40 @@ func notifyUserWithKaminoElsaCredentials(s *discordgo.Session, userID, username,
 
     return nil
 }
+
+func deleteKaminoUser(s *discordgo.Session, i *discordgo.InteractionCreate, username string) {
+    l, err := connectLDAP()
+    if err != nil {
+        log.Printf("Failed to connect to LDAP: %v", err)
+        s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+            Type: discordgo.InteractionResponseChannelMessageWithSource,
+            Data: &discordgo.InteractionResponseData{
+                Content: fmt.Sprintf("Failed to connect to LDAP: %v", err),
+            },
+        })
+        return
+    }
+    defer l.Close()
+
+    userDN := fmt.Sprintf("cn=%s,%s", username, LDAPUsersDN)
+
+    deleteRequest := ldap.NewDelRequest(userDN, nil)
+    err = l.Del(deleteRequest)
+    if err != nil {
+        log.Printf("Failed to delete user %s: %v", username, err)
+        s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+            Type: discordgo.InteractionResponseChannelMessageWithSource,
+            Data: &discordgo.InteractionResponseData{
+                Content: fmt.Sprintf("Failed to delete user %s: %v", username, err),
+            },
+        })
+        return
+    }
+
+    s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+        Type: discordgo.InteractionResponseChannelMessageWithSource,
+        Data: &discordgo.InteractionResponseData{
+            Content: fmt.Sprintf("User %s successfully deleted from Kamino.", username),
+        },
+    })
+}
