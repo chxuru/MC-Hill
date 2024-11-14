@@ -4,8 +4,8 @@ import (
     "fmt"
     "log"
     "github.com/go-ldap/ldap/v3"
-    "os"
     "crypto/tls"
+    "github.com/bwmarrin/discordgo"
 )
 
 func connectLDAP() (*ldap.Conn, error) {
