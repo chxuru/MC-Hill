@@ -37,11 +37,11 @@ func AddUserToGroup(username string) error {
         return err
     }
     defer l.Close()
-
+    fmt.Println("LDAP_INSECURE_TLS:", LDAPInsecureTLS)
     userDN := fmt.Sprintf("%s=%s,%s", LDAPUserAttribute, username, LDAPUsersDN)
     modifyRequest := ldap.NewModifyRequest(LDAPGroupDN, nil)
     modifyRequest.Add("member", []string{userDN})
-
+    fmt.Println("LDAP_INSECURE_TLS:", LDAPInsecureTLS)
     err = l.Modify(modifyRequest)
     if err != nil {
         return fmt.Errorf("failed to add user to Kamino group: %v", err)
