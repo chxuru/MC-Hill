@@ -62,12 +62,18 @@ func registerCommands(discord *discordgo.Session) {
                 {
                     Type:        discordgo.ApplicationCommandOptionSubCommand,
                     Name:        "add",
-                    Description: "Add a user to the Kamino group",
+                    Description: "Add a Kamino user",
                     Options: []*discordgo.ApplicationCommandOption{
                         {
                             Type:        discordgo.ApplicationCommandOptionString,
                             Name:        "username",
-                            Description: "Username to add",
+                            Description: "username",
+                            Required:    true,
+                        },
+                        {
+                            Type:        discordgo.ApplicationCommandOptionString,
+                            Name:        "handle",
+                            Description: "Discord handle",
                             Required:    true,
                         },
                     },
@@ -75,12 +81,12 @@ func registerCommands(discord *discordgo.Session) {
                 {
                     Type:        discordgo.ApplicationCommandOptionSubCommand,
                     Name:        "delete",
-                    Description: "Delete a user from the Kamino group",
+                    Description: "Delete a Kamino user",
                     Options: []*discordgo.ApplicationCommandOption{
                         {
                             Type:        discordgo.ApplicationCommandOptionString,
                             Name:        "username",
-                            Description: "Username to delete",
+                            Description: "username",
                             Required:    true,
                         },
                     },
