@@ -9,6 +9,7 @@ import (
     "golang.org/x/text/encoding/unicode"
     "golang.org/x/text/transform"
     "strings"
+    "bytes"
 )
 
 func connectLDAP() (*ldap.Conn, error) {
@@ -63,6 +64,7 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
     addRequest.Attribute("unicodePwd", []string{encodedPassword})
     addRequest.Attribute("userPrincipalName", []string{username + "@sdc.cpp"})
     addRequest.Attribute("displayName", []string{username})
+    addRequest.Attribute("userAccountControl", []string{"512"})
 
     err = l.Add(addRequest)
     if err != nil {
