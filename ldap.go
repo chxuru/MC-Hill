@@ -72,6 +72,7 @@ func DeleteUserFromGroup(username string) error {
 }
 
 func handleKaminoAddCommand(s *discordgo.Session, i *discordgo.InteractionCreate, username string) {
+    fmt.Println("LDAP_INSECURE_TLS:", LDAPInsecureTLS)
     err := AddUserToGroup(username)
     var response string
     if err != nil {
