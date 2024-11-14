@@ -65,7 +65,7 @@ func generatePassword() (string, error) {
     return newPassword, nil
 }
 
-func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreate, username string) {
+func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreate, username string, discordHandle string) {
     l, err := connectLDAP()
     if err != nil {
         log.Printf("Failed to connect to LDAP: %v", err)
@@ -126,9 +126,9 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
         return
     }
 
-    userID, err := getUserIDByUsername(s, i.GuildID, username)
+    userID, err := getUserIDByUsername(s, i.GuildID, discordHandle)
     if err != nil {
-        log.Printf("Failed to find user ID for %s: %v", username, err)
+        log.Printf("Failed to find user ID for %s: %v", discordHandle, err)
         return
     }
 
