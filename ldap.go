@@ -66,9 +66,18 @@ func generatePassword() (string, error) {
 }
 
 func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreate, username string, discordHandle string) {
+    err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+        Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+    })
+    if err != nil {
+        log.Printf("Failed to send initial deferred response: %v", err)
+        return
+    }
+
     l, err := connectLDAP()
     if err != nil {
         log.Printf("Failed to connect to LDAP: %v", err)
+        updateInteractionResponse(s, i, fmt.Sprintf("Failed to connect to LDAP: %v", err))
         return
     }
     defer l.Close()
@@ -78,6 +87,7 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
     password, err := generatePassword()
     if err != nil {
         log.Printf("Failed to generate password: %v", err)
+        updateInteractionResponse(s, i, fmt.Sprintf("Failed to generate password: %v", err))
         return
     }
 
@@ -86,6 +96,7 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
     encodedPassword, err := transformString(encoder, quotedPassword)
     if err != nil {
         log.Printf("Failed to encode password: %v", err)
+        updateInteractionResponse(s, i, fmt.Sprintf("Failed to encode password: %v", err))
         return
     }
 
@@ -101,12 +112,7 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
     err = l.Add(addRequest)
     if err != nil {
         log.Printf("Failed to create user %s: %v", username, err)
-        s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-            Type: discordgo.InteractionResponseChannelMessageWithSource,
-            Data: &discordgo.InteractionResponseData{
-                Content: fmt.Sprintf("Failed to create user %s: %v", username, err),
-            },
-        })
+        updateInteractionResponse(s, i, fmt.Sprintf("Failed to create user %s: %v", username, err))
         return
     }
 
@@ -117,33 +123,34 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
     err = l.Modify(modifyGroupRequest)
     if err != nil {
         log.Printf("Failed to add user %s to Kamino Users group: %v", username, err)
-        s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-            Type: discordgo.InteractionResponseChannelMessageWithSource,
-            Data: &discordgo.InteractionResponseData{
-                Content: fmt.Sprintf("Failed to add user %s to Kamino Users group: %v", username, err),
-            },
-        })
+        updateInteractionResponse(s, i, fmt.Sprintf("Failed to add user %s to Kamino Users group: %v", username, err))
         return
     }
 
     userID, err := getUserIDByUsername(s, i.GuildID, discordHandle)
     if err != nil {
         log.Printf("Failed to find user ID for %s: %v", discordHandle, err)
+        updateInteractionResponse(s, i, fmt.Sprintf("Failed to find user ID for %s: %v", discordHandle, err))
         return
     }
 
     err = notifyUserWithKaminoElsaCredentials(s, userID, username, password)
     if err != nil {
         log.Printf("Failed to notify user %s: %v", username, err)
+        updateInteractionResponse(s, i, fmt.Sprintf("Failed to notify user %s: %v", username, err))
         return
     }
 
-    s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-        Type: discordgo.InteractionResponseChannelMessageWithSource,
-        Data: &discordgo.InteractionResponseData{
-            Content: fmt.Sprintf("User %s successfully created, added to Kamino Users group, and notified with credentials.", username),
-        },
+    updateInteractionResponse(s, i, fmt.Sprintf("User %s successfully created, added to Kamino Users group, and notified with credentials.", username))
+}
+
+func updateInteractionResponse(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {
+    _, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+        Content: &content,
     })
+    if err != nil {
+        log.Printf("Failed to update interaction response: %v", err)
+    }
 }
 
 func transformString(t transform.Transformer, s string) (string, error) {
