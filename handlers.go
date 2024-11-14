@@ -60,28 +60,39 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 func handleKaminoCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     subcommand := i.ApplicationCommandData().Options[0].Name
-
     options := i.ApplicationCommandData().Options[0].Options
-
-    if len(options) < 2 {
-        s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-            Type: discordgo.InteractionResponseChannelMessageWithSource,
-            Data: &discordgo.InteractionResponseData{
-                Content: "Error: Missing required options. Please provide both username and discord handle.",
-            },
-        })
-        log.Println("Error: Missing required options for /kamino add command.")
-        return
-    }
-
-    username := options[0].StringValue()
-    discordHandle := options[1].StringValue()
 
     switch subcommand {
     case "add":
+        if len(options) < 2 {
+            s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                Type: discordgo.InteractionResponseChannelMessageWithSource,
+                Data: &discordgo.InteractionResponseData{
+                    Content: "Error: Missing required options. Please provide both username and discord handle.",
+                },
+            })
+            log.Println("Error: Missing required options for /kamino add command.")
+            return
+        }
+
+        username := options[0].StringValue()
+        discordHandle := options[1].StringValue()
         createUserAndAddToGroup(s, i, username, discordHandle)
+
     case "delete":
-        log.Printf("Not ready byebye")
+        if len(options) < 1 {
+            s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                Type: discordgo.InteractionResponseChannelMessageWithSource,
+                Data: &discordgo.InteractionResponseData{
+                    Content: "Error: Missing required option. Please provide the username to delete.",
+                },
+            })
+            log.Println("Error: Missing required option for /kamino delete command.")
+            return
+        }
+
+        username := options[0].StringValue()
+        deleteKaminoUser(s, i, username)
     }
 }
 
