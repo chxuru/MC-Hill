@@ -3,7 +3,7 @@ name: IDK
 on:
   push:
     branches:
-      - main
+      - ldap
 jobs:
   build:
     runs-on: ubuntu-latest

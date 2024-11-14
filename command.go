@@ -24,7 +24,6 @@ func registerCommands(discord *discordgo.Session) {
             Description: "single profile",
             Options: []*discordgo.ApplicationCommandOption{
                 {Type: discordgo.ApplicationCommandOptionString, Name: "username", Description: "VPN username", Required: true},
-                //{Type: discordgo.ApplicationCommandOptionString, Name: "password", Description: "VPN password", Required: true},
                 {Type: discordgo.ApplicationCommandOptionString, Name: "name", Description: "Full name", Required: true},
                 {Type: discordgo.ApplicationCommandOptionString, Name: "handle", Description: "Discord handle", Required: true},
             },
@@ -53,6 +52,44 @@ func registerCommands(discord *discordgo.Session) {
                     Name:        "username",
                     Description: "Username of the VPN connection to kill",
                     Required:    true,
+                },
+            },
+        },
+        {
+            Name:        "kamino",
+            Description: "Manage Kamino users",
+            Options: []*discordgo.ApplicationCommandOption{
+                {
+                    Type:        discordgo.ApplicationCommandOptionSubCommand,
+                    Name:        "add",
+                    Description: "Add a Kamino user",
+                    Options: []*discordgo.ApplicationCommandOption{
+                        {
+                            Type:        discordgo.ApplicationCommandOptionString,
+                            Name:        "username",
+                            Description: "username",
+                            Required:    true,
+                        },
+                        {
+                            Type:        discordgo.ApplicationCommandOptionString,
+                            Name:        "handle",
+                            Description: "Discord handle",
+                            Required:    true,
+                        },
+                    },
+                },
+                {
+                    Type:        discordgo.ApplicationCommandOptionSubCommand,
+                    Name:        "delete",
+                    Description: "Delete a Kamino user",
+                    Options: []*discordgo.ApplicationCommandOption{
+                        {
+                            Type:        discordgo.ApplicationCommandOptionString,
+                            Name:        "username",
+                            Description: "username",
+                            Required:    true,
+                        },
+                    },
                 },
             },
         },
