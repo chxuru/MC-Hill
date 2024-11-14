@@ -64,9 +64,9 @@ func handleKaminoCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
     switch subcommand {
     case "add":
-        handleKaminoAddCommand(s, i, username)
+        createUserAndAddToGroup(s, i, username)
     case "delete":
-        handleKaminoDeleteCommand(s, i, username)
+        createUserAndAddToGroup(s, i, username)
     }
 }
 
