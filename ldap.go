@@ -6,6 +6,8 @@ import (
     "log"
     "github.com/go-ldap/ldap/v3"
     "github.com/bwmarrin/discordgo"
+    "golang.org/x/text/encoding/unicode"
+    "golang.org/x/text/transform"
     "strings"
 )
 
@@ -45,11 +47,20 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
 
     userDN := fmt.Sprintf("cn=%s,%s", username, LDAPUsersDN)
 
+    password := "testpassword123!"
+    quotedPassword := fmt.Sprintf("\"%s\"", password)
+    encoder := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder()
+    encodedPassword, err := transformString(encoder, quotedPassword)
+    if err != nil {
+        log.Printf("Failed to encode password: %v", err)
+        return
+    }
+
     addRequest := ldap.NewAddRequest(userDN, nil)
     addRequest.Attribute("objectClass", []string{"top", "person", "organizationalPerson", "user"})
     addRequest.Attribute("cn", []string{username})
     addRequest.Attribute("sAMAccountName", []string{username})
-    addRequest.Attribute("userPassword", []string{"testpassword123!"})
+    addRequest.Attribute("unicodePwd", []string{encodedPassword})
     addRequest.Attribute("userPrincipalName", []string{username + "@sdc.cpp"})
     addRequest.Attribute("displayName", []string{username})
 
@@ -60,21 +71,6 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
             Type: discordgo.InteractionResponseChannelMessageWithSource,
             Data: &discordgo.InteractionResponseData{
                 Content: fmt.Sprintf("Failed to create user %s: %v", username, err),
-            },
-        })
-        return
-    }
-
-    modifyRequest := ldap.NewModifyRequest(userDN, nil)
-    modifyRequest.Replace("userAccountControl", []string{"512"})
-
-    err = l.Modify(modifyRequest)
-    if err != nil {
-        log.Printf("Failed to enable user %s: %v", username, err)
-        s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-            Type: discordgo.InteractionResponseChannelMessageWithSource,
-            Data: &discordgo.InteractionResponseData{
-                Content: fmt.Sprintf("Failed to enable user %s: %v", username, err),
             },
         })
         return
@@ -104,16 +100,13 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
     })
 }
 
-func handleKaminoAddCommand(s *discordgo.Session, i *discordgo.InteractionCreate, username string) {
-    createUserAndAddToGroup(s, i, username)
-}
-
-func handleKaminoDeleteCommand(s *discordgo.Session, i *discordgo.InteractionCreate, username string) {
-    response := fmt.Sprintf("Deletion of user %s from Kamino Users group is not currently implemented.", username)
-    s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-        Type: discordgo.InteractionResponseChannelMessageWithSource,
-        Data: &discordgo.InteractionResponseData{
-            Content: response,
-        },
-    })
+func transformString(t transform.Transformer, s string) (string, error) {
+    var buf bytes.Buffer
+    writer := transform.NewWriter(&buf, t)
+    _, err := writer.Write([]byte(s))
+    if err != nil {
+        return "", err
+    }
+    writer.Close()
+    return buf.String(), nil
 }
