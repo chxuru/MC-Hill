@@ -6,6 +6,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.10.0
 	github.com/bwmarrin/discordgo v0.28.1
 	github.com/go-ldap/ldap/v3 v3.4.8
+	golang.org/x/text v0.18.0
 )
 
 require (
