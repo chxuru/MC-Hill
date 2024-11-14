@@ -6,6 +6,7 @@ import (
     "github.com/go-ldap/ldap/v3"
     "crypto/tls"
     "github.com/bwmarrin/discordgo"
+    "strings"
 )
 
 func connectLDAP() (*ldap.Conn, error) {
