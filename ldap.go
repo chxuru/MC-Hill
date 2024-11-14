@@ -4,11 +4,12 @@ import (
     "crypto/tls"
     "fmt"
     "log"
+    "os/exec"
+    "strings"
     "github.com/go-ldap/ldap/v3"
     "github.com/bwmarrin/discordgo"
     "golang.org/x/text/encoding/unicode"
     "golang.org/x/text/transform"
-    "strings"
     "bytes"
 )
 
@@ -38,6 +39,32 @@ func connectLDAP() (*ldap.Conn, error) {
     return l, nil
 }
 
+func generatePassword() (string, error) {
+    wordsCmd := exec.Command("bw", "generate", "--passphrase", "--words", "3", "--separator", "-")
+    wordsOutput, err := wordsCmd.Output()
+    if err != nil {
+        return "", fmt.Errorf("failed to generate words for password: %v", err)
+    }
+    words := strings.ReplaceAll(strings.TrimSpace(string(wordsOutput)), "-", "")
+
+    numberCmd := exec.Command("bash", "-c", "bw generate --length 5 --number | head -c 1")
+    numberOutput, err := numberCmd.Output()
+    if err != nil {
+        return "", fmt.Errorf("failed to generate number for password: %v", err)
+    }
+    number := strings.TrimSpace(string(numberOutput))
+
+    specialCmd := exec.Command("bash", "-c", "bw generate --length 5 --special | head -c 1")
+    specialOutput, err := specialCmd.Output()
+    if err != nil {
+        return "", fmt.Errorf("failed to generate special character for password: %v", err)
+    }
+    specialChar := strings.TrimSpace(string(specialOutput))
+
+    newPassword := words + number + specialChar
+    return newPassword, nil
+}
+
 func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreate, username string) {
     l, err := connectLDAP()
     if err != nil {
@@ -48,7 +75,13 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
 
     userDN := fmt.Sprintf("cn=%s,%s", username, LDAPUsersDN)
 
-    password := "testpassword123!"
+    password, err := generatePassword()
+    if err != nil {
+        log.Printf("Failed to generate password: %v", err)
+        return
+    }
+    log.Printf("Generated password for user %s: %s", username, password)
+
     quotedPassword := fmt.Sprintf("\"%s\"", password)
     encoder := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder()
     encodedPassword, err := transformString(encoder, quotedPassword)
