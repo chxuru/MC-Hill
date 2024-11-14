@@ -9,17 +9,20 @@ import (
 )
 
 func connectLDAP() (*ldap.Conn, error) {
-    l, err := ldap.DialURL(LDAPURL)
-    if err != nil {
-        return nil, fmt.Errorf("failed to connect to LDAP server: %v", err)
+    var dialOpts []ldap.DialOpt
+
+    if strings.HasPrefix(LDAPURL, "ldaps://") {
+        dialOpts = append(dialOpts, ldap.DialWithTLSConfig(&tls.Config{
+            InsecureSkipVerify: LDAPInsecureTLS,
+            MinVersion:         tls.VersionTLS12,
+        }))
+    } else {
+        return nil, fmt.Errorf("only ldaps:// connections are supported")
     }
 
-    if LDAPInsecureTLS {
-        err = l.StartTLS(&tls.Config{InsecureSkipVerify: true})
-        if err != nil {
-            l.Close()
-            return nil, fmt.Errorf("failed to establish TLS connection: %v", err)
-        }
+    l, err := ldap.DialURL(LDAPURL, dialOpts...)
+    if err != nil {
+        return nil, fmt.Errorf("failed to connect to LDAP server: %v", err)
     }
 
     err = l.Bind(LDAPBindDN, LDAPBindPassword)
