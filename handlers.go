@@ -61,7 +61,7 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
 func handleKaminoCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     subcommand := i.ApplicationCommandData().Options[0].Name
     username := i.ApplicationCommandData().Options[0].Options[0].StringValue()
-    discordHandle := := i.ApplicationCommandData().Options[1].Options[1].StringValue()
+    discordHandle := i.ApplicationCommandData().Options[1].Options[1].StringValue()
 
     switch subcommand {
     case "add":
