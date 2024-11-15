@@ -3,7 +3,7 @@ name: IDK
 on:
   push:
     branches:
-      - character-limit
+      - main
 jobs:
   build:
     runs-on: ubuntu-latest
