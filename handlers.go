@@ -619,21 +619,43 @@ func handleDisplayCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
     })
 
     messageContent := strings.Join(userList, "\n")
-
-    if len(messageContent) > 2000 {
-        log.Printf("User list output (over character limit):\n%s", messageContent)
+    if len(messageContent) == 0 {
         _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-            Content: "Output over character limit, check logs",
+            Content: "No users found.",
         })
-    } else {
-        _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-            Content: messageContent,
-        })
+        if err != nil {
+            log.Printf("Failed to send empty user list message: %v", err)
+        }
+        return
     }
 
-    if err != nil {
-        log.Printf("Failed to send message: %v", err)
+    chunks := chunkString(messageContent, 2000)
+    for _, chunk := range chunks {
+        _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: chunk,
+        })
+        if err != nil {
+            log.Printf("Failed to send message chunk: %v", err)
+            return
+        }
     }
+}
+
+func chunkString(s string, chunkSize int) []string {
+    var chunks []string
+    for len(s) > chunkSize {
+        chunk := s[:chunkSize]
+        lastNewline := strings.LastIndex(chunk, "\n")
+        if lastNewline > 0 {
+            chunk = s[:lastNewline+1]
+        }
+        chunks = append(chunks, chunk)
+        s = s[len(chunk):]
+    }
+    if len(s) > 0 {
+        chunks = append(chunks, s)
+    }
+    return chunks
 }
 
 func handleDeleteCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
