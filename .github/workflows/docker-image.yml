@@ -3,7 +3,7 @@ name: IDK
 on:
   push:
     branches:
-      - main
+      - bulkv2
 jobs:
   build:
     runs-on: ubuntu-latest
