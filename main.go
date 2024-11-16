@@ -5,6 +5,8 @@ import (
     "log"
 )
 
+var GuildID string
+
 func main() {
     discord, err := discordgo.New("Bot " + DiscordBotToken)
     if err != nil {
