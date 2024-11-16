@@ -175,7 +175,7 @@ func notifyUserWithKaminoElsaCredentials(s *discordgo.Session, userID, username,
     }
 
     message := fmt.Sprintf(
-        "Hi, here are your credentials which can be used to access both Kamino and Elsa. DM @chxuru on Discord if you have any questions.\n\n"+
+        "Hi, here are your credentials which can be used to access both Kamino and Elsa. If your creds are for a workshop or competition, you will lose access after the event ends. DM @chxuru on Discord if you have any questions.\n\n"+
             "Credentials\nUsername: ||%s||\nPassword: ||%s||",
         username, password,
     )
