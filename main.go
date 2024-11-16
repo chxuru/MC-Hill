@@ -12,11 +12,15 @@ func main() {
     }
     defer discord.Close()
 
+    discord.AddHandler(handleReady)
+    discord.AddHandler(handleInteraction)
+    
     err = discord.Open()
     if err != nil {
         log.Fatalf("Failed to open Discord session: %v", err)
     }
 
+    registerCommands(discord)
     log.Println("Bot is running!")
     select {}
 }
