@@ -12,6 +12,9 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
         return
     }
 
+    GuildID = i.GuildID
+    log.Printf("Stored GuildID: %s", GuildID)
+
     if i.Type == discordgo.InteractionApplicationCommand {
         switch i.ApplicationCommandData().Name {
         case "multi":
@@ -33,6 +36,7 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
         }
     }
 }
+
 
 func handleKaminoCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     subcommand := i.ApplicationCommandData().Options[0].Name
