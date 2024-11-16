@@ -274,6 +274,7 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
     }
 
     header := rows[0]
+    log.Printf("Parsed header row: %v", header)
     colIndex := map[string]int{
         "Username": -1,
         "Handle":   -1,
