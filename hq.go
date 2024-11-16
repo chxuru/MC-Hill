@@ -12,24 +12,26 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
         return
     }
 
+    log.Printf("Command executed in Guild ID: %s", i.GuildID)
+
     if i.Type == discordgo.InteractionApplicationCommand {
         switch i.ApplicationCommandData().Name {
         case "multi":
-            handleProfileCommand(s, i)
+            handleProfileCommand(s, i, i.GuildID)
         case "single":
-            handleSingleProfileCommand(s, i)
+            handleSingleProfileCommand(s, i, i.GuildID)
         case "display":
-            handleDisplayCommand(s, i)
+            handleDisplayCommand(s, i, i.GuildID)
         case "conns":
-            handleConnsCommand(s, i)
+            handleConnsCommand(s, i, i.GuildID)
         case "delete":
-            handleDeleteCommand(s, i)
+            handleDeleteCommand(s, i, i.GuildID)
         case "status":
-            handleStatusCommand(s, i)
+            handleStatusCommand(s, i, i.GuildID)
         case "kill":
-            handleKillCommand(s, i)
+            handleKillCommand(s, i, i.GuildID)
         case "kamino":
-            handleKaminoCommand(s, i)
+            handleKaminoCommand(s, i, i.GuildID)
         }
     }
 }
