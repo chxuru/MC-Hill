@@ -248,7 +248,11 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
         return
     }
 
-    if len(records) < 1 || records[0][0] != "Username" || records[0][1] != "Handle" {
+    for i := range records[0] {
+        records[0][i] = strings.TrimSpace(records[0][i])
+    }
+    
+    if len(records[0]) < 2 || records[0][0] != "Username" || records[0][1] != "Handle" {
         updateInteractionResponse(s, i, "CSV file must have 'Username' and 'Handle' as headers.")
         return
     }
