@@ -13,6 +13,8 @@ import (
     "bytes"
     "encoding/csv"
     "net/http"
+    "os"
+    "io"
 )
 
 func connectLDAP() (*ldap.Conn, error) {
