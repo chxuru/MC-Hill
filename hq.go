@@ -81,10 +81,21 @@ func handleKaminoCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
             log.Println("Error: Missing required CSV file for /kamino add-bulk command.")
             return
         }
-
-        csvFile := options[0].AttachmentValue()
-        log.Printf("Processing CSV file: %s", csvFile.URL)
-        processBulkAdd(s, i, csvFile.URL)
+    
+        attachment := i.ApplicationCommandData().Resolved.Attachments[options[0].StringValue()]
+        if attachment == nil {
+            s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                Type: discordgo.InteractionResponseChannelMessageWithSource,
+                Data: &discordgo.InteractionResponseData{
+                    Content: "Error: Could not retrieve the uploaded CSV file.",
+                },
+            })
+            log.Println("Error: Could not retrieve the uploaded CSV file.")
+            return
+        }
+    
+        log.Printf("Processing CSV file: %s", attachment.URL)
+        processBulkAdd(s, i, attachment.URL)
 
     case "delete-bulk":
         if len(options) < 1 {
