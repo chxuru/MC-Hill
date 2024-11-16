@@ -13,7 +13,6 @@ var (
     OpenvpnStatusPath = "status_openvpn.php"
     AdminUsername     = os.Getenv("PFSENSE_ADMIN_USERNAME")
     AdminPassword     = os.Getenv("PFSENSE_ADMIN_PASSWORD")
-    GuildID           = os.Getenv("DISCORD_GUILD_ID")
 
     LDAPBindDN        = os.Getenv("LDAP_BIND_DN")
     LDAPURL           = os.Getenv("LDAP_URL")
