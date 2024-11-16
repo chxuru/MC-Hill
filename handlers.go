@@ -354,7 +354,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate, 
     }
 }
 
-func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate, guildID string) {
     err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
         Data: &discordgo.InteractionResponseData{
