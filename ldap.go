@@ -274,14 +274,16 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
     }
 
     header := rows[0]
-    log.Printf("Parsed header row: %v", header)
+    header[0] = strings.TrimPrefix(header[0], "\ufeff")
+    log.Printf("Parsed header row after BOM removal: %v", header)
+
     colIndex := map[string]int{
-        "Username": -1,
-        "Handle":   -1,
+        "username": -1,
+        "handle":   -1,
     }
 
     for idx, colName := range header {
-        colName = strings.TrimSpace(colName)
+        colName = strings.TrimSpace(strings.ToLower(colName))
         if _, ok := colIndex[colName]; ok {
             colIndex[colName] = idx
         }
@@ -297,8 +299,8 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
     }
 
     for _, row := range rows[1:] {
-        username := row[colIndex["Username"]]
-        handle := row[colIndex["Handle"]]
+        username := strings.TrimSpace(row[colIndex["username"]])
+        handle := strings.TrimSpace(row[colIndex["handle"]])
 
         if username == "" || handle == "" {
             log.Printf("Skipping incomplete record: %v", row)
