@@ -17,21 +17,21 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
     if i.Type == discordgo.InteractionApplicationCommand {
         switch i.ApplicationCommandData().Name {
         case "multi":
-            handleProfileCommand(s, i, i.GuildID)
+            handleProfileCommand(s, i)
         case "single":
-            handleSingleProfileCommand(s, i, i.GuildID)
+            handleSingleProfileCommand(s, i)
         case "display":
-            handleDisplayCommand(s, i, i.GuildID)
+            handleDisplayCommand(s, i)
         case "conns":
-            handleConnsCommand(s, i, i.GuildID)
+            handleConnsCommand(s, i)
         case "delete":
-            handleDeleteCommand(s, i, i.GuildID)
+            handleDeleteCommand(s, i)
         case "status":
-            handleStatusCommand(s, i, i.GuildID)
+            handleStatusCommand(s, i)
         case "kill":
-            handleKillCommand(s, i, i.GuildID)
+            handleKillCommand(s, i)
         case "kamino":
-            handleKaminoCommand(s, i, i.GuildID)
+            handleKaminoCommand(s, i)
         }
     }
 }
