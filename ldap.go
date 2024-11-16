@@ -11,6 +11,8 @@ import (
     "golang.org/x/text/encoding/unicode"
     "golang.org/x/text/transform"
     "bytes"
+    "encoding/csv"
+    "net/http"
 )
 
 func connectLDAP() (*ldap.Conn, error) {
@@ -219,4 +221,69 @@ func deleteKaminoUser(s *discordgo.Session, i *discordgo.InteractionCreate, user
             Content: fmt.Sprintf("User %s successfully deleted from Kamino.", username),
         },
     })
+}
+
+func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileURL string) {
+    err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+        Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+    })
+    if err != nil {
+        log.Printf("Failed to send initial deferred response: %v", err)
+        return
+    }
+
+    resp, err := http.Get(fileURL)
+    if err != nil || resp.StatusCode != http.StatusOK {
+        log.Printf("Failed to download CSV file: %v", err)
+        updateInteractionResponse(s, i, "Failed to download the CSV file. Please try again.")
+        return
+    }
+    defer resp.Body.Close()
+
+    reader := csv.NewReader(resp.Body)
+    records, err := reader.ReadAll()
+    if err != nil {
+        log.Printf("Failed to parse CSV file: %v", err)
+        updateInteractionResponse(s, i, "Failed to parse the CSV file. Ensure it is properly formatted.")
+        return
+    }
+
+    if len(records) < 1 || records[0][0] != "Username" || records[0][1] != "Handle" {
+        updateInteractionResponse(s, i, "CSV file must have 'Username' and 'Handle' as headers.")
+        return
+    }
+
+    for _, record := range records[1:] {
+        username, discordHandle := record[0], record[1]
+        if username == "" || discordHandle == "" {
+            log.Printf("Skipping incomplete record: %v", record)
+            continue
+        }
+
+        createUserAndAddToGroup(s, i, username, discordHandle)
+    }
+
+    updateInteractionResponse(s, i, "Bulk addition of users completed.")
+}
+
+func processBulkDelete(s *discordgo.Session, i *discordgo.InteractionCreate, usernames string) {
+    err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+        Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+    })
+    if err != nil {
+        log.Printf("Failed to send initial deferred response: %v", err)
+        return
+    }
+
+    usernameList := strings.Split(usernames, ",")
+    for _, username := range usernameList {
+        username = strings.TrimSpace(username)
+        if username == "" {
+            continue
+        }
+
+        deleteKaminoUser(s, i, username)
+    }
+
+    updateInteractionResponse(s, i, "Bulk deletion of users completed.")
 }
