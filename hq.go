@@ -69,5 +69,37 @@ func handleKaminoCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
         username := options[0].StringValue()
         deleteKaminoUser(s, i, username)
+
+    case "add-bulk":
+        if len(options) < 1 {
+            s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                Type: discordgo.InteractionResponseChannelMessageWithSource,
+                Data: &discordgo.InteractionResponseData{
+                    Content: "Error: Missing required option. Please upload a CSV file.",
+                },
+            })
+            log.Println("Error: Missing required CSV file for /kamino add-bulk command.")
+            return
+        }
+
+        csvFile := options[0].AttachmentValue()
+        log.Printf("Processing CSV file: %s", csvFile.URL)
+        processBulkAdd(s, i, csvFile.URL)
+
+    case "delete-bulk":
+        if len(options) < 1 {
+            s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+                Type: discordgo.InteractionResponseChannelMessageWithSource,
+                Data: &discordgo.InteractionResponseData{
+                    Content: "Error: Missing required option. Please provide a comma-separated list of usernames.",
+                },
+            })
+            log.Println("Error: Missing required usernames for /kamino delete-bulk command.")
+            return
+        }
+
+        usernames := options[0].StringValue()
+        log.Printf("Processing bulk delete for usernames: %s", usernames)
+        processBulkDelete(s, i, usernames)
     }
 }
