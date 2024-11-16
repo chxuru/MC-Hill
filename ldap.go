@@ -226,6 +226,7 @@ func deleteKaminoUser(s *discordgo.Session, i *discordgo.InteractionCreate, user
 }
 
 func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileURL string) {
+    // Acknowledge the interaction with a deferred response
     err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
     })
@@ -234,6 +235,7 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
         return
     }
 
+    // Download the CSV file
     response, err := http.Get(fileURL)
     if err != nil {
         log.Printf("Failed to download CSV file: %v", err)
@@ -242,6 +244,7 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
     }
     defer response.Body.Close()
 
+    // Save the file to a temporary location
     tempFile, err := os.CreateTemp("", "kamino_bulk_*.csv")
     if err != nil {
         log.Printf("Failed to create temp file: %v", err)
@@ -265,6 +268,7 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
     }
     defer file.Close()
 
+    // Parse the CSV
     csvReader := csv.NewReader(file)
     rows, err := csvReader.ReadAll()
     if err != nil {
@@ -273,17 +277,19 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
         return
     }
 
+    // Handle BOM in the header
     header := rows[0]
     header[0] = strings.TrimPrefix(header[0], "\ufeff")
     log.Printf("Parsed header row after BOM removal: %v", header)
 
+    // Validate headers
     colIndex := map[string]int{
         "username": -1,
         "handle":   -1,
     }
 
     for idx, colName := range header {
-        colName = strings.TrimSpace(strings.ToLower(colName))
+        colName = strings.TrimSpace(strings.ToLower(colName)) // Normalize header names
         if _, ok := colIndex[colName]; ok {
             colIndex[colName] = idx
         }
@@ -298,6 +304,7 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
         }
     }
 
+    // Process each row
     for _, row := range rows[1:] {
         username := strings.TrimSpace(row[colIndex["username"]])
         handle := strings.TrimSpace(row[colIndex["handle"]])
@@ -307,7 +314,71 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
             continue
         }
 
-        createUserAndAddToGroup(s, i, username, handle)
+        // Generate a password using Bitwarden logic
+        password, err := generatePassword()
+        if err != nil {
+            log.Printf("Failed to generate password for %s: %v", username, err)
+            continue
+        }
+
+        // Create LDAP user
+        l, err := connectLDAP()
+        if err != nil {
+            log.Printf("Failed to connect to LDAP: %v", err)
+            continue
+        }
+        defer l.Close()
+
+        userDN := fmt.Sprintf("cn=%s,%s", username, LDAPUsersDN)
+
+        quotedPassword := fmt.Sprintf("\"%s\"", password)
+        encoder := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder()
+        encodedPassword, err := transformString(encoder, quotedPassword)
+        if err != nil {
+            log.Printf("Failed to encode password for %s: %v", username, err)
+            continue
+        }
+
+        addRequest := ldap.NewAddRequest(userDN, nil)
+        addRequest.Attribute("objectClass", []string{"top", "person", "organizationalPerson", "user"})
+        addRequest.Attribute("cn", []string{username})
+        addRequest.Attribute("sAMAccountName", []string{username})
+        addRequest.Attribute("unicodePwd", []string{encodedPassword})
+        addRequest.Attribute("userPrincipalName", []string{username + "@sdc.cpp"})
+        addRequest.Attribute("displayName", []string{username})
+        addRequest.Attribute("userAccountControl", []string{"512"})
+
+        err = l.Add(addRequest)
+        if err != nil {
+            log.Printf("Failed to create user %s: %v", username, err)
+            continue
+        }
+
+        // Add user to group
+        groupDN := LDAPGroupDN
+        modifyGroupRequest := ldap.NewModifyRequest(groupDN, nil)
+        modifyGroupRequest.Add("member", []string{userDN})
+
+        err = l.Modify(modifyGroupRequest)
+        if err != nil {
+            log.Printf("Failed to add user %s to Kamino Users group: %v", username, err)
+            continue
+        }
+
+        // Message user on Discord
+        userID, err := getUserIDByUsername(s, i.GuildID, handle)
+        if err != nil {
+            log.Printf("Failed to find user ID for handle %s: %v", handle, err)
+            continue
+        }
+
+        err = notifyUserWithKaminoElsaCredentials(s, userID, username, password)
+        if err != nil {
+            log.Printf("Failed to notify user %s: %v", username, err)
+            continue
+        }
+
+        log.Printf("Successfully created user %s and sent credentials to handle %s", username, handle)
     }
 
     followupMessage(s, i, "Bulk addition of users completed.")
