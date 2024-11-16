@@ -91,6 +91,32 @@ func registerCommands(discord *discordgo.Session) {
                         },
                     },
                 },
+                {
+                    Type:        discordgo.ApplicationCommandOptionSubCommand,
+                    Name:        "add-bulk",
+                    Description: "Add multiple Kamino users",
+                    Options: []*discordgo.ApplicationCommandOption{
+                        {
+                            Type:        discordgo.ApplicationCommandOptionAttachment,
+                            Name:        "csvfile",
+                            Description: "CSV file with Username & Handle column headers",
+                            Required:    true,
+                        },
+                    },
+                },
+                {
+                    Type:        discordgo.ApplicationCommandOptionSubCommand,
+                    Name:        "delete-bulk",
+                    Description: "Delete multiple Kamino users",
+                    Options: []*discordgo.ApplicationCommandOption{
+                        {
+                            Type:        discordgo.ApplicationCommandOptionString,
+                            Name:        "usernames",
+                            Description: "Comma-separated list of usernames",
+                            Required:    true,
+                        },
+                    },
+                },
             },
         },
     }
