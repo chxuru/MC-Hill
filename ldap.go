@@ -232,39 +232,77 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
         return
     }
 
-    resp, err := http.Get(fileURL)
-    if err != nil || resp.StatusCode != http.StatusOK {
+    response, err := http.Get(fileURL)
+    if err != nil {
         log.Printf("Failed to download CSV file: %v", err)
         updateInteractionResponse(s, i, "Failed to download the CSV file. Please try again.")
         return
     }
-    defer resp.Body.Close()
+    defer response.Body.Close()
 
-    reader := csv.NewReader(resp.Body)
-    records, err := reader.ReadAll()
+    tempFile, err := os.CreateTemp("", "kamino_bulk_*.csv")
     if err != nil {
-        log.Printf("Failed to parse CSV file: %v", err)
-        updateInteractionResponse(s, i, "Failed to parse the CSV file. Ensure it is properly formatted.")
+        log.Printf("Failed to create temp file: %v", err)
+        updateInteractionResponse(s, i, "Failed to create a temporary file.")
+        return
+    }
+    defer os.Remove(tempFile.Name())
+
+    _, err = io.Copy(tempFile, response.Body)
+    if err != nil {
+        log.Printf("Failed to save CSV file: %v", err)
+        updateInteractionResponse(s, i, "Failed to save the CSV file.")
         return
     }
 
-    for i := range records[0] {
-        records[0][i] = strings.TrimSpace(records[0][i])
+    file, err := os.Open(tempFile.Name())
+    if err != nil {
+        log.Printf("Failed to open CSV file: %v", err)
+        updateInteractionResponse(s, i, "Failed to open the CSV file.")
+        return
     }
-    
-    if len(records[0]) < 2 || records[0][0] != "Username" || records[0][1] != "Handle" {
-        updateInteractionResponse(s, i, "CSV file must have 'Username' and 'Handle' as headers.")
+    defer file.Close()
+
+    csvReader := csv.NewReader(file)
+    rows, err := csvReader.ReadAll()
+    if err != nil {
+        log.Printf("Failed to read CSV file: %v", err)
+        updateInteractionResponse(s, i, "Failed to read the CSV file. Ensure it is properly formatted.")
         return
     }
 
-    for _, record := range records[1:] {
-        username, discordHandle := record[0], record[1]
-        if username == "" || discordHandle == "" {
-            log.Printf("Skipping incomplete record: %v", record)
+    header := rows[0]
+    colIndex := map[string]int{
+        "Username": -1,
+        "Handle":   -1,
+    }
+
+    for idx, colName := range header {
+        colName = strings.TrimSpace(colName)
+        if _, ok := colIndex[colName]; ok {
+            colIndex[colName] = idx
+        }
+    }
+
+    for key, idx := range colIndex {
+        if idx == -1 {
+            errorMsg := fmt.Sprintf("Error occurred: Missing required column: %s", key)
+            log.Printf(errorMsg)
+            updateInteractionResponse(s, i, errorMsg)
+            return
+        }
+    }
+
+    for _, row := range rows[1:] {
+        username := row[colIndex["Username"]]
+        handle := row[colIndex["Handle"]]
+
+        if username == "" || handle == "" {
+            log.Printf("Skipping incomplete record: %v", row)
             continue
         }
 
-        createUserAndAddToGroup(s, i, username, discordHandle)
+        createUserAndAddToGroup(s, i, username, handle)
     }
 
     updateInteractionResponse(s, i, "Bulk addition of users completed.")
