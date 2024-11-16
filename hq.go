@@ -82,7 +82,8 @@ func handleKaminoCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
             return
         }
     
-        attachment := i.ApplicationCommandData().Resolved.Attachments[options[0].StringValue()]
+        attachmentID := options[0].Value.(string)
+        attachment := i.ApplicationCommandData().Resolved.Attachments[attachmentID]
         if attachment == nil {
             s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
                 Type: discordgo.InteractionResponseChannelMessageWithSource,
