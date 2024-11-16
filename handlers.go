@@ -138,7 +138,7 @@ func ensureBitwardenLogin() error {
     return nil
 }
 
-func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate, guildID string) {
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
 
