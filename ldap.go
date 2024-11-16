@@ -237,7 +237,7 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
     response, err := http.Get(fileURL)
     if err != nil {
         log.Printf("Failed to download CSV file: %v", err)
-        updateInteractionResponse(s, i, "Failed to download the CSV file. Please try again.")
+        followupMessage(s, i, "Failed to download the CSV file. Please try again.")
         return
     }
     defer response.Body.Close()
@@ -245,7 +245,7 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
     tempFile, err := os.CreateTemp("", "kamino_bulk_*.csv")
     if err != nil {
         log.Printf("Failed to create temp file: %v", err)
-        updateInteractionResponse(s, i, "Failed to create a temporary file.")
+        followupMessage(s, i, "Failed to create a temporary file.")
         return
     }
     defer os.Remove(tempFile.Name())
@@ -253,14 +253,14 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
     _, err = io.Copy(tempFile, response.Body)
     if err != nil {
         log.Printf("Failed to save CSV file: %v", err)
-        updateInteractionResponse(s, i, "Failed to save the CSV file.")
+        followupMessage(s, i, "Failed to save the CSV file.")
         return
     }
 
     file, err := os.Open(tempFile.Name())
     if err != nil {
         log.Printf("Failed to open CSV file: %v", err)
-        updateInteractionResponse(s, i, "Failed to open the CSV file.")
+        followupMessage(s, i, "Failed to open the CSV file.")
         return
     }
     defer file.Close()
@@ -269,7 +269,7 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
     rows, err := csvReader.ReadAll()
     if err != nil {
         log.Printf("Failed to read CSV file: %v", err)
-        updateInteractionResponse(s, i, "Failed to read the CSV file. Ensure it is properly formatted.")
+        followupMessage(s, i, "Failed to read the CSV file. Ensure it is properly formatted.")
         return
     }
 
@@ -293,7 +293,7 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
         if idx == -1 {
             errorMsg := fmt.Sprintf("Error occurred: Missing required column: %s", key)
             log.Printf(errorMsg)
-            updateInteractionResponse(s, i, errorMsg)
+            followupMessage(s, i, errorMsg)
             return
         }
     }
@@ -310,7 +310,16 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
         createUserAndAddToGroup(s, i, username, handle)
     }
 
-    updateInteractionResponse(s, i, "Bulk addition of users completed.")
+    followupMessage(s, i, "Bulk addition of users completed.")
+}
+
+func followupMessage(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {
+    _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+        Content: content,
+    })
+    if err != nil {
+        log.Printf("Failed to send follow-up message: %v", err)
+    }
 }
 
 func processBulkDelete(s *discordgo.Session, i *discordgo.InteractionCreate, usernames string) {
