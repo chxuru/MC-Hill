@@ -466,7 +466,8 @@ func listKaminoUsers(s *discordgo.Session, i *discordgo.InteractionCreate) {
         return
     }
 
-    messageContent := strings.Join(userList, "\n")
+    messageContent := strings.Join(userList, ", ")
+
     chunks := chunkString(messageContent, 2000)
 
     for _, chunk := range chunks {
