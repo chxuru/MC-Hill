@@ -479,26 +479,3 @@ func listKaminoUsers(s *discordgo.Session, i *discordgo.InteractionCreate) {
         }
     }
 }
-
-func chunkString(s string, chunkSize int) []string {
-    var chunks []string
-    for len(s) > 0 {
-        if len(s) > chunkSize {
-            chunks = append(chunks, s[:chunkSize])
-            s = s[chunkSize:]
-        } else {
-            chunks = append(chunks, s)
-            break
-        }
-    }
-    return chunks
-}
-
-func respondWithError(s *discordgo.Session, i *discordgo.InteractionCreate, errorMsg string) {
-    _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-        Content: errorMsg,
-    })
-    if err != nil {
-        log.Printf("Failed to send error message: %v", err)
-    }
-}
