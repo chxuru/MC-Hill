@@ -3,7 +3,7 @@ name: IDK
 on:
   push:
     branches:
-      - QoL
+      - main
 jobs:
   build:
     runs-on: ubuntu-latest
