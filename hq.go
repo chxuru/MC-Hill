@@ -117,5 +117,8 @@ func handleKaminoCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
         usernames := options[0].StringValue()
         log.Printf("Processing bulk delete for usernames: %s", usernames)
         processBulkDelete(s, i, usernames)
+
+    case "display":
+        listKaminoUsers(s, i)
     }
 }

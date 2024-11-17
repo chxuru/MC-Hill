@@ -403,3 +403,80 @@ func processBulkDelete(s *discordgo.Session, i *discordgo.InteractionCreate, use
 
     updateInteractionResponse(s, i, "Bulk deletion of users completed.")
 }
+
+func listKaminoUsers(s *discordgo.Session, i *discordgo.InteractionCreate) {
+    err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+        Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+        Data: &discordgo.InteractionResponseData{
+            Content: "Fetching the user list...",
+        },
+    })
+    if err != nil {
+        log.Printf("Failed to send initial response: %v", err)
+        return
+    }
+
+    l, err := connectLDAP()
+    if err != nil {
+        log.Printf("Failed to connect to LDAP: %v", err)
+        respondWithError(s, i, fmt.Sprintf("Failed to connect to LDAP: %v", err))
+        return
+    }
+    defer l.Close()
+
+    searchRequest := ldap.NewSearchRequest(
+        LDAPGroupDN,
+        ldap.ScopeBaseObject,
+        ldap.NeverDerefAliases,
+        0,
+        0,
+        false,
+        "(objectClass=group)",
+        []string{"member"},
+        nil,
+    )
+
+    searchResult, err := l.Search(searchRequest)
+    if err != nil {
+        log.Printf("Failed to search LDAP: %v", err)
+        respondWithError(s, i, fmt.Sprintf("Failed to search LDAP: %v", err))
+        return
+    }
+
+    if len(searchResult.Entries) == 0 {
+        respondWithError(s, i, "No members found in the Kamino Users group.")
+        return
+    }
+
+    members := searchResult.Entries[0].GetAttributeValues("member")
+    var userList []string
+
+    for _, memberDN := range members {
+        parts := strings.Split(memberDN, ",")
+        for _, part := range parts {
+            if strings.HasPrefix(part, "CN=") {
+                userList = append(userList, strings.TrimPrefix(part, "CN="))
+                break
+            }
+        }
+    }
+
+    if len(userList) == 0 {
+        respondWithError(s, i, "No usernames found in the Kamino Users group.")
+        return
+    }
+
+    messageContent := strings.Join(userList, ", ")
+
+    chunks := chunkString(messageContent, 2000)
+
+    for _, chunk := range chunks {
+        _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: chunk,
+        })
+        if err != nil {
+            log.Printf("Failed to send message chunk: %v", err)
+            return
+        }
+    }
+}

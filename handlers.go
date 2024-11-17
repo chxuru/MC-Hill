@@ -82,26 +82,22 @@ func handleConnsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
         }
     })
 
-    var messageContent string
     if len(vpnConns) == 0 {
-        messageContent = "No active VPN connections found."
-    } else {
-        messageContent = strings.Join(vpnConns, "\n")
+        respondWithError(s, i, "No active VPN connections found.")
+        return
     }
 
-    if len(messageContent) > 2000 {
-        log.Printf("VPN connections output (over character limit):\n%s", messageContent)
-        _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-            Content: "Output over character limit, check logs",
-        })
-    } else {
-        _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-            Content: messageContent,
-        })
-    }
+    messageContent := strings.Join(vpnConns, "\n")
+    chunks := chunkString(messageContent, 2000)
 
-    if err != nil {
-        log.Printf("Failed to send message: %v", err)
+    for _, chunk := range chunks {
+        _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: chunk,
+        })
+        if err != nil {
+            log.Printf("Failed to send message chunk: %v", err)
+            return
+        }
     }
 }
 

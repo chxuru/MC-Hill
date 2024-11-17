@@ -117,6 +117,11 @@ func registerCommands(discord *discordgo.Session) {
                         },
                     },
                 },
+                {
+                    Type:        discordgo.ApplicationCommandOptionSubCommand,
+                    Name:        "display",
+                    Description: "Display all users in the Kamino Users group",
+                },
             },
         },
     }
