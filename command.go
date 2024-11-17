@@ -1,10 +1,3 @@
-package main
-
-import (
-    "github.com/bwmarrin/discordgo"
-    "log"
-)
-
 func registerCommands(discord *discordgo.Session) {
     commands := []discordgo.ApplicationCommand{
         {
@@ -116,6 +109,11 @@ func registerCommands(discord *discordgo.Session) {
                             Required:    true,
                         },
                     },
+                },
+                {
+                    Type:        discordgo.ApplicationCommandOptionSubCommand,
+                    Name:        "display",
+                    Description: "Display all users in the Kamino Users group",
                 },
             },
         },
