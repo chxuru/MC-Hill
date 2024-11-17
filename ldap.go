@@ -407,16 +407,19 @@ func processBulkDelete(s *discordgo.Session, i *discordgo.InteractionCreate, use
 func listKaminoUsers(s *discordgo.Session, i *discordgo.InteractionCreate) {
     err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+        Data: &discordgo.InteractionResponseData{
+            Content: "Fetching the user list...",
+        },
     })
     if err != nil {
-        log.Printf("Failed to send initial deferred response: %v", err)
+        log.Printf("Failed to send initial response: %v", err)
         return
     }
 
     l, err := connectLDAP()
     if err != nil {
         log.Printf("Failed to connect to LDAP: %v", err)
-        updateInteractionResponse(s, i, fmt.Sprintf("Failed to connect to LDAP: %v", err))
+        respondWithError(s, i, fmt.Sprintf("Failed to connect to LDAP: %v", err))
         return
     }
     defer l.Close()
@@ -436,31 +439,66 @@ func listKaminoUsers(s *discordgo.Session, i *discordgo.InteractionCreate) {
     searchResult, err := l.Search(searchRequest)
     if err != nil {
         log.Printf("Failed to search LDAP: %v", err)
-        updateInteractionResponse(s, i, fmt.Sprintf("Failed to search LDAP: %v", err))
+        respondWithError(s, i, fmt.Sprintf("Failed to search LDAP: %v", err))
         return
     }
 
     if len(searchResult.Entries) == 0 {
-        updateInteractionResponse(s, i, "No members found in the Kamino Users group.")
+        respondWithError(s, i, "No members found in the Kamino Users group.")
         return
     }
 
     members := searchResult.Entries[0].GetAttributeValues("member")
-    usernames := []string{}
+    var userList []string
+
     for _, memberDN := range members {
         parts := strings.Split(memberDN, ",")
         for _, part := range parts {
             if strings.HasPrefix(part, "CN=") {
-                usernames = append(usernames, strings.TrimPrefix(part, "CN="))
+                userList = append(userList, strings.TrimPrefix(part, "CN="))
                 break
             }
         }
     }
 
-    if len(usernames) == 0 {
-        updateInteractionResponse(s, i, "No usernames found in the Kamino Users group.")
-    } else {
-        response := fmt.Sprintf("Users in Kamino Users group:\n%s", strings.Join(usernames, "\n"))
-        updateInteractionResponse(s, i, response)
+    if len(userList) == 0 {
+        respondWithError(s, i, "No usernames found in the Kamino Users group.")
+        return
+    }
+
+    messageContent := strings.Join(userList, "\n")
+    chunks := chunkString(messageContent, 2000)
+
+    for _, chunk := range chunks {
+        _, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+            Content: chunk,
+        })
+        if err != nil {
+            log.Printf("Failed to send message chunk: %v", err)
+            return
+        }
+    }
+}
+
+func chunkString(s string, chunkSize int) []string {
+    var chunks []string
+    for len(s) > 0 {
+        if len(s) > chunkSize {
+            chunks = append(chunks, s[:chunkSize])
+            s = s[chunkSize:]
+        } else {
+            chunks = append(chunks, s)
+            break
+        }
+    }
+    return chunks
+}
+
+func respondWithError(s *discordgo.Session, i *discordgo.InteractionCreate, errorMsg string) {
+    _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+        Content: errorMsg,
+    })
+    if err != nil {
+        log.Printf("Failed to send error message: %v", err)
     }
 }
