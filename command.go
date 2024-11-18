@@ -80,19 +80,6 @@ func registerCommands(discord *discordgo.Session) {
                 },
                 {
                     Type:        discordgo.ApplicationCommandOptionSubCommand,
-                    Name:        "delete",
-                    Description: "Delete a Kamino user",
-                    Options: []*discordgo.ApplicationCommandOption{
-                        {
-                            Type:        discordgo.ApplicationCommandOptionString,
-                            Name:        "username",
-                            Description: "username",
-                            Required:    true,
-                        },
-                    },
-                },
-                {
-                    Type:        discordgo.ApplicationCommandOptionSubCommand,
                     Name:        "add-bulk",
                     Description: "Add multiple Kamino users",
                     Options: []*discordgo.ApplicationCommandOption{
@@ -106,13 +93,13 @@ func registerCommands(discord *discordgo.Session) {
                 },
                 {
                     Type:        discordgo.ApplicationCommandOptionSubCommand,
-                    Name:        "delete-bulk",
-                    Description: "Delete multiple Kamino users",
+                    Name:        "delete",
+                    Description: "Delete Kamino users by username",
                     Options: []*discordgo.ApplicationCommandOption{
                         {
                             Type:        discordgo.ApplicationCommandOptionString,
                             Name:        "usernames",
-                            Description: "Comma-separated list of usernames",
+                            Description: "Comma-separated list of usernames to delete",
                             Required:    true,
                         },
                     },
