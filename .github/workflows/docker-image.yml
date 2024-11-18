@@ -3,7 +3,7 @@ name: IDK
 on:
   push:
     branches:
-      - main
+      - merge-kdelete
 jobs:
   build:
     runs-on: ubuntu-latest
