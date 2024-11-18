@@ -59,21 +59,6 @@ func handleKaminoCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
         discordHandle := options[1].StringValue()
         createUserAndAddToGroup(s, i, username, discordHandle)
 
-    case "delete":
-        if len(options) < 1 {
-            s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-                Type: discordgo.InteractionResponseChannelMessageWithSource,
-                Data: &discordgo.InteractionResponseData{
-                    Content: "Error: Missing required option. Please provide the username to delete.",
-                },
-            })
-            log.Println("Error: Missing required option for /kamino delete command.")
-            return
-        }
-
-        username := options[0].StringValue()
-        deleteKaminoUser(s, i, username)
-
     case "add-bulk":
         if len(options) < 1 {
             s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -102,7 +87,7 @@ func handleKaminoCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
         log.Printf("Processing CSV file: %s", attachment.URL)
         processBulkAdd(s, i, attachment.URL)
 
-    case "delete-bulk":
+    case "delete":
         if len(options) < 1 {
             s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
                 Type: discordgo.InteractionResponseChannelMessageWithSource,
