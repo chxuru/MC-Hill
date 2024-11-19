@@ -24,6 +24,12 @@ var (
     LDAPInsecureTLS   = os.Getenv("LDAP_INSECURE_TLS") == "true"
 )
 
+var guildIDs = []string{
+    "185912981576482816",
+    "954324859876417557",
+    "1300343195720486932",
+}
+
 func init() {
     requiredEnvVars := []string{"DISCORD_BOT_TOKEN", "PFSENSE_BASE_URL", "PFSENSE_ADMIN_USERNAME", "PFSENSE_ADMIN_PASSWORD", "LDAP_BIND_DN", "LDAP_URL", "LDAP_BIND_PASSWORD", "LDAP_BASE_DN", "LDAP_GROUP_DN", "LDAP_USERS_DN", "LDAP_USER_ATTRIBUTE"}
     for _, envVar := range requiredEnvVars {
