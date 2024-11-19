@@ -7,8 +7,18 @@ import (
 )
 
 func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
-    if i.GuildID == "" {
-        log.Println("Ignoring DM interaction")
+    const allowedChannelID = "1304231659746627634"
+
+    if i.ChannelID != allowedChannelID {
+        err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+            Type: discordgo.InteractionResponseChannelMessageWithSource,
+            Data: &discordgo.InteractionResponseData{
+                Content: "You can't run commands here",
+            },
+        })
+        if err != nil {
+            log.Printf("Error responding to interaction: %v", err)
+        }
         return
     }
 
@@ -36,7 +46,6 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
         }
     }
 }
-
 
 func handleKaminoCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
     subcommand := i.ApplicationCommandData().Options[0].Name
