@@ -135,17 +135,21 @@ func respondWithError(s *discordgo.Session, i *discordgo.InteractionCreate, mess
     })
 }
 
-func getUserIDByUsername(s *discordgo.Session, guildID, username string) (string, error) {
-    members, err := s.GuildMembersSearch(guildID, username, 1)
-    if err != nil {
-        return "", fmt.Errorf("failed to search for user %s: %w", username, err)
+func getUserIDByUsername(s *discordgo.Session, username string) (string, error) {
+    for _, guildID := range guildIDs {
+        members, err := s.GuildMembersSearch(guildID, username, 1)
+        if err != nil {
+            log.Printf("Error searching in guild %s: %v", guildID, err)
+            continue
+        }
+
+        if len(members) > 0 {
+            log.Printf("Found user %s in guild %s", username, guildID)
+            return members[0].User.ID, nil
+        }
     }
 
-    if len(members) == 0 {
-        return "", fmt.Errorf("user %s not found in guild", username)
-    }
-
-    return members[0].User.ID, nil
+    return "", fmt.Errorf("user %s not found in any guild", username)
 }
 
 func notifyUserOnDiscord(s *discordgo.Session, userID, username, password string) error {
