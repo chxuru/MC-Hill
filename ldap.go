@@ -131,7 +131,7 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
         return
     }
 
-    userID, err := getUserIDByUsername(s, i.GuildID, discordHandle)
+    userID, err := getUserIDByUsername(s, discordHandle)
     if err != nil {
         log.Printf("Failed to find user ID for %s: %v", discordHandle, err)
         updateInteractionResponse(s, i, fmt.Sprintf("Failed to find user ID for %s: %v", discordHandle, err))
@@ -355,7 +355,7 @@ func processBulkAdd(s *discordgo.Session, i *discordgo.InteractionCreate, fileUR
             continue
         }
 
-        userID, err := getUserIDByUsername(s, i.GuildID, handle)
+        userID, err := getUserIDByUsername(s, handle)
         if err != nil {
             log.Printf("Failed to find user ID for handle %s: %v", handle, err)
             continue
