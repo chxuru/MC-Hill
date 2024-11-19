@@ -291,7 +291,7 @@ func handleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
             }
             log.Printf("VPN profile for %s was created successfully.", newUsername)
 
-            userID, err := getUserIDByUsername(s, GuildID, discordHandle)
+            userID, err := getUserIDByUsername(s, discordHandle)
             if err != nil {
                 log.Printf("Failed to find user ID for %s: %v", discordHandle, err)
                 continue
@@ -478,7 +478,7 @@ func handleSingleProfileCommand(s *discordgo.Session, i *discordgo.InteractionCr
     }
     log.Printf("VPN profile for %s was created successfully.", newUsername)
 
-    userID, err := getUserIDByUsername(s, GuildID, discordHandle)
+    userID, err := getUserIDByUsername(s, discordHandle)
     if err != nil {
         log.Printf("Failed to find user ID for %s: %v", discordHandle, err)
     }
