@@ -2,20 +2,9 @@ package main
 
 import (
     "log"
-    "strings"
 
     "github.com/bwmarrin/discordgo"
 )
-
-func handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
-    if m.Author.Bot {
-        return
-    }
-
-    if strings.TrimSpace(m.Content) == "!status" {
-        handleStatusCommand(s, m)
-    }
-}
 
 func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
     const allowedChannelID = "1304231659746627634"
