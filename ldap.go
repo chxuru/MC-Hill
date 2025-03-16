@@ -22,7 +22,7 @@ func connectLDAP() (*ldap.Conn, error) {
 
     if strings.HasPrefix(LDAPURL, "ldaps://") {
         dialOpts = append(dialOpts, ldap.DialWithTLSConfig(&tls.Config{
-            InsecureSkipVerify: LDAPInsecureTLS,
+            InsecureSkipVerify: true,
             MinVersion:         tls.VersionTLS12,
         }))
     } else {
