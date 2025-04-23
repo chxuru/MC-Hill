@@ -8,8 +8,17 @@ import (
 
 func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
     const allowedChannelID = "1304231659746627634"
+    allowedChannelIDs := []string{"1364677031576600837", "1304231659746627634"}
 
-    if i.ChannelID != allowedChannelID {
+    allowed := false
+    for _, id := range allowedChannelIDs {
+        if i.ChannelID == id {
+            allowed = true
+            break
+        }
+    }
+    
+    if allowed == false {
         err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
             Type: discordgo.InteractionResponseChannelMessageWithSource,
             Data: &discordgo.InteractionResponseData{
