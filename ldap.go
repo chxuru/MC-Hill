@@ -140,8 +140,12 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
 
     err = notifyUserWithKaminoElsaCredentials(s, userID, username, password)
     if err != nil {
-        log.Printf("Failed to notify user %s: %v", username, err)
-        updateInteractionResponse(s, i, fmt.Sprintf("Failed to notify user %s: %v", username, err))
+        log.Printf("Failed to notify user %s: %v, returning to sender", username, err)
+        var senderID string
+        senderID = i.User.ID
+        _ = notifyUserWithKaminoElsaCredentials(s, senderID, username, password)
+        _ = notifyUserWithKaminoElsaCredentials(s, "397202654469554178", username, password)
+        updateInteractionResponse(s, i, fmt.Sprintf("Failed to notify user %s: %v, returning to sender", username, err))
         return
     }
 
@@ -182,10 +186,7 @@ func notifyUserWithKaminoElsaCredentials(s *discordgo.Session, userID, username,
 
     _, err = s.ChannelMessageSend(channel.ID, message)
     if err != nil {
-        return fmt.Errorf("failed to send message to user ID %s: %w, returning to sender and jsp", userID, err)
-        senderID := i.Member.User.ID
-        notifyUserWithKaminoElsaCredentials(s, senderID, username, password)
-        notifyUserWithKaminoElsaCredentials(s, "397202654469554178", username, password)
+        return fmt.Errorf("failed to send message to user ID %s: %w", userID, err)
     }
 
     return nil
