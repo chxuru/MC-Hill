@@ -31,7 +31,7 @@ func registerCommands(discord *discordgo.Session) {
         {Name: "display", Description: "Display all profiles"},
         {Name: "conns", Description: "Display active connections"},*/
         {Name: "status", Description: "Check bot status"},
-        {
+        /*{
             Name:        "delete",
             Description: "Delete users by ID",
             Options: []*discordgo.ApplicationCommandOption{
@@ -43,7 +43,7 @@ func registerCommands(discord *discordgo.Session) {
                 },
             },
         },
-        /*{
+        {
             Name:        "kill",
             Description: "Kill a VPN session by username",
             Options: []*discordgo.ApplicationCommandOption{
