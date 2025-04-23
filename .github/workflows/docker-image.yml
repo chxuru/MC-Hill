@@ -3,7 +3,7 @@ name: IDK
 on:
   push:
     branches:
-      - main
+      - globalprotect
 jobs:
   build:
     runs-on: ubuntu-latest
