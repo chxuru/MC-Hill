@@ -182,7 +182,11 @@ func notifyUserWithKaminoElsaCredentials(s *discordgo.Session, userID, username,
 
     _, err = s.ChannelMessageSend(channel.ID, message)
     if err != nil {
-        return fmt.Errorf("failed to send message to user ID %s: %w", userID, err)
+        return fmt.Errorf("failed to send message to user ID %s: %w, returning to sender and jsp", userID, err)
+        senderID := i.Member.User.ID
+        notifyUserWithKaminoElsaCredentials(s, senderID, username, password)
+        notifyUserWithKaminoElsaCredentials(s, "397202654469554178", username, password)
+        notify
     }
 
     return nil
