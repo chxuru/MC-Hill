@@ -142,7 +142,7 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
     if err != nil {
         log.Printf("Failed to notify user %s: %v, returning to sender", username, err)
         var senderID string
-        senderID = i.User.ID
+        senderID = i.Member.User.ID
         _ = notifyUserWithKaminoElsaCredentials(s, senderID, username, password)
         _ = notifyUserWithKaminoElsaCredentials(s, "397202654469554178", username, password)
         updateInteractionResponse(s, i, fmt.Sprintf("Failed to notify user %s: %v, returning to sender", username, err))
