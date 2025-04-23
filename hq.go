@@ -36,6 +36,7 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
     if i.Type == discordgo.InteractionApplicationCommand {
         switch i.ApplicationCommandData().Name {
+        /*depreciated
         case "multi":
             handleProfileCommand(s, i)
         case "single":
@@ -46,10 +47,10 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
             handleConnsCommand(s, i)
         case "delete":
             handleDeleteCommand(s, i)
+        case "kill":
+            handleKillCommand(s, i)*/
         case "status":
             handleStatusCommand(s, i)
-        case "kill":
-            handleKillCommand(s, i)
         case "kamino":
             handleKaminoCommand(s, i)
         }
