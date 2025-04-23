@@ -7,7 +7,7 @@ import (
 
 func registerCommands(discord *discordgo.Session) {
     commands := []discordgo.ApplicationCommand{
-        {
+        /*{
             Name:        "multi",
             Description: "multiple profiles",
             Options: []*discordgo.ApplicationCommandOption{
@@ -29,7 +29,7 @@ func registerCommands(discord *discordgo.Session) {
             },
         },
         {Name: "display", Description: "Display all profiles"},
-        {Name: "conns", Description: "Display active connections"},
+        {Name: "conns", Description: "Display active connections"},*/
         {Name: "status", Description: "Check bot status"},
         {
             Name:        "delete",
@@ -43,7 +43,7 @@ func registerCommands(discord *discordgo.Session) {
                 },
             },
         },
-        {
+        /*{
             Name:        "kill",
             Description: "Kill a VPN session by username",
             Options: []*discordgo.ApplicationCommandOption{
@@ -54,7 +54,7 @@ func registerCommands(discord *discordgo.Session) {
                     Required:    true,
                 },
             },
-        },
+        },*/
         {
             Name:        "kamino",
             Description: "Manage Kamino users",
