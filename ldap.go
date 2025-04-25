@@ -455,13 +455,10 @@ func listKaminoUsers(s *discordgo.Session, i *discordgo.InteractionCreate) {
     members := searchResult.Entries[0].GetAttributeValues("cn")
     var userList []string
 
-    for _, memberDN := range members {
-        parts := strings.Split(memberDN, ",")
-        for _, part := range parts {
-            if strings.HasPrefix(part, "CN=") {
-                userList = append(userList, strings.TrimPrefix(part, "CN="))
-                break
-            }
+    for _, entry := range searchResult.Entries {
+        cn := entry.GetAttributeValue("cn")
+        if cn != "" {
+            userList = append(userList, cn)
         }
     }
 
