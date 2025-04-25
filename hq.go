@@ -31,9 +31,6 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
         return
     }
 
-    GuildID = i.GuildID
-    log.Printf("Stored GuildID: %s", GuildID)
-
     if i.Type == discordgo.InteractionApplicationCommand {
         switch i.ApplicationCommandData().Name {
         /*depreciated
