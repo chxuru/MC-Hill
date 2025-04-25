@@ -430,7 +430,7 @@ func listKaminoUsers(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
     searchRequest := ldap.NewSearchRequest(
         LDAPUsersDN,
-        ldap.ScopeBaseObject,
+        ldap.ScopeWholeSubtree,
         ldap.NeverDerefAliases,
         0,
         0,
@@ -452,7 +452,7 @@ func listKaminoUsers(s *discordgo.Session, i *discordgo.InteractionCreate) {
         return
     }
 
-    members := searchResult.Entries[0].GetAttributeValues("member")
+    members := searchResult.Entries[0].GetAttributeValues("cn")
     var userList []string
 
     for _, memberDN := range members {
