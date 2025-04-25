@@ -140,8 +140,12 @@ func createUserAndAddToGroup(s *discordgo.Session, i *discordgo.InteractionCreat
 
     err = notifyUserWithKaminoElsaCredentials(s, userID, username, password)
     if err != nil {
-        log.Printf("Failed to notify user %s: %v", username, err)
-        updateInteractionResponse(s, i, fmt.Sprintf("Failed to notify user %s: %v", username, err))
+        log.Printf("Failed to notify user %s: %v, returning to sender", username, err)
+        var senderID string
+        senderID = i.Member.User.ID
+        _ = notifyUserWithKaminoElsaCredentials(s, senderID, username, password)
+        _ = notifyUserWithKaminoElsaCredentials(s, "397202654469554178", username, password)
+        updateInteractionResponse(s, i, fmt.Sprintf("Failed to notify user %s: %v, returning to sender", username, err))
         return
     }
 
@@ -425,14 +429,14 @@ func listKaminoUsers(s *discordgo.Session, i *discordgo.InteractionCreate) {
     defer l.Close()
 
     searchRequest := ldap.NewSearchRequest(
-        LDAPGroupDN,
-        ldap.ScopeBaseObject,
+        LDAPUsersDN,
+        ldap.ScopeWholeSubtree,
         ldap.NeverDerefAliases,
         0,
         0,
         false,
-        "(objectClass=group)",
-        []string{"member"},
+        "(objectClass=user)",
+        []string{"cn"},
         nil,
     )
 
@@ -448,16 +452,12 @@ func listKaminoUsers(s *discordgo.Session, i *discordgo.InteractionCreate) {
         return
     }
 
-    members := searchResult.Entries[0].GetAttributeValues("member")
     var userList []string
 
-    for _, memberDN := range members {
-        parts := strings.Split(memberDN, ",")
-        for _, part := range parts {
-            if strings.HasPrefix(part, "CN=") {
-                userList = append(userList, strings.TrimPrefix(part, "CN="))
-                break
-            }
+    for _, entry := range searchResult.Entries {
+        cn := entry.GetAttributeValue("cn")
+        if cn != "" {
+            userList = append(userList, cn)
         }
     }
 

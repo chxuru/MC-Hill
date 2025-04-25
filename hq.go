@@ -8,8 +8,17 @@ import (
 
 func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
     const allowedChannelID = "1304231659746627634"
+    allowedChannelIDs := []string{"1364677031576600837", "1304231659746627634"}
 
-    if i.ChannelID != allowedChannelID {
+    allowed := false
+    for _, id := range allowedChannelIDs {
+        if i.ChannelID == id {
+            allowed = true
+            break
+        }
+    }
+    
+    if allowed == false {
         err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
             Type: discordgo.InteractionResponseChannelMessageWithSource,
             Data: &discordgo.InteractionResponseData{
@@ -22,11 +31,9 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
         return
     }
 
-    GuildID = i.GuildID
-    log.Printf("Stored GuildID: %s", GuildID)
-
     if i.Type == discordgo.InteractionApplicationCommand {
         switch i.ApplicationCommandData().Name {
+        /*depreciated
         case "multi":
             handleProfileCommand(s, i)
         case "single":
@@ -37,10 +44,10 @@ func handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
             handleConnsCommand(s, i)
         case "delete":
             handleDeleteCommand(s, i)
+        case "kill":
+            handleKillCommand(s, i)*/
         case "status":
             handleStatusCommand(s, i)
-        case "kill":
-            handleKillCommand(s, i)
         case "kamino":
             handleKaminoCommand(s, i)
         }
