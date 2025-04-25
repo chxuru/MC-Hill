@@ -429,14 +429,14 @@ func listKaminoUsers(s *discordgo.Session, i *discordgo.InteractionCreate) {
     defer l.Close()
 
     searchRequest := ldap.NewSearchRequest(
-        LDAPGroupDN,
+        LDAPUsersDN,
         ldap.ScopeBaseObject,
         ldap.NeverDerefAliases,
         0,
         0,
         false,
-        "(objectClass=group)",
-        []string{"member"},
+        "(objectClass=user)",
+        []string{"cn"},
         nil,
     )
 
