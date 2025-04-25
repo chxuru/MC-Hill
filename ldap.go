@@ -452,7 +452,6 @@ func listKaminoUsers(s *discordgo.Session, i *discordgo.InteractionCreate) {
         return
     }
 
-    members := searchResult.Entries[0].GetAttributeValues("cn")
     var userList []string
 
     for _, entry := range searchResult.Entries {
